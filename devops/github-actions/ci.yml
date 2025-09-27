@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        ports: ["5432:5432"]
+        env:
+          POSTGRES_DB: legaltech
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/legaltech
+      DJANGO_SECRET_KEY: ci-secret
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements-dev.txt
+      - name: Run linters
+        run: |
+          cd backend
+          black --check .
+          ruff check .
+          mypy .
+      - name: Run tests
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+          pytest --cov
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+      - name: Lint & Typecheck
+        run: |
+          cd frontend
+          npm run lint
+          npm run typecheck
+      - name: Run tests
+        run: |
+          cd frontend
+          npm run test -- --run

@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: legaltech
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  minio:
+    build:
+      context: ..
+      dockerfile: devops/docker/minio.Dockerfile
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: devops/docker/backend.Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ../backend:/app
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/legaltech
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET_NAME: legaltech-dev
+      DJANGO_SECRET_KEY: dev-secret
+      DJANGO_DEBUG: "True"
+      CA_REGION: ca-central-1
+      STRIPE_SECRET_KEY: sk_test_stub
+      STRIPE_WEBHOOK_SECRET: whsec_stub
+    depends_on:
+      - db
+      - minio
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: devops/docker/frontend.Dockerfile
+    volumes:
+      - ../frontend:/app
+    environment:
+      VITE_API_BASE: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  pgdata:
+  minio-data:

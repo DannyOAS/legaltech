@@ -1,0 +1,56 @@
+"""Client and matter models."""
+from __future__ import annotations
+
+import uuid
+
+from django.db import models
+
+from accounts.models import Organization, User
+
+
+class TimeStampedModel(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class Client(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(Organization, related_name="clients", on_delete=models.CASCADE)
+    display_name = models.CharField(max_length=255)
+    primary_email = models.EmailField()
+    phone = models.CharField(max_length=30, blank=True)
+    address = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["display_name"]
+
+    def __str__(self) -> str:
+        return self.display_name
+
+
+class Matter(TimeStampedModel):
+    STATUS_CHOICES = [("open", "Open"), ("closed", "Closed")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(Organization, related_name="matters", on_delete=models.CASCADE)
+    client = models.ForeignKey(Client, related_name="matters", on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    practice_area = models.CharField(max_length=120)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="open")
+    opened_at = models.DateField()
+    closed_at = models.DateField(null=True, blank=True)
+    reference_code = models.CharField(max_length=64, unique=True)
+    lead_lawyer = models.ForeignKey(User, related_name="lead_matters", on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-opened_at"]
+        indexes = [models.Index(fields=["reference_code"])]
+
+    def __str__(self) -> str:
+        return self.title
