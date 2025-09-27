@@ -160,6 +160,10 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+if DEBUG:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["burst"] = "600/min"
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["sustained"] = "5000/hour"
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),

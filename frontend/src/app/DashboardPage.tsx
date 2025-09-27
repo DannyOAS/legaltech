@@ -18,7 +18,8 @@ const fetcher = <T,>(url: string) => api.get<T>(url);
 
 const DashboardPage = () => {
   const { data: summary } = useSWR<BillingSummary>("/reports/billing-summary/", fetcher);
-  const { data: audit } = useSWR<AuditEvent[]>("/audit-events/", fetcher);
+  const { data: audit } = useSWR<AuditEvent[] | { results: AuditEvent[] }>("/audit-events/", fetcher);
+  const events = Array.isArray(audit) ? audit : audit?.results ?? [];
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
@@ -42,12 +43,16 @@ const DashboardPage = () => {
       <section className="rounded-lg bg-white p-6 shadow md:col-span-2">
         <h2 className="text-lg font-semibold text-slate-700">Recent Activity</h2>
         <ul className="mt-4 space-y-3 text-sm">
-          {audit?.slice(0, 5).map((event) => (
-            <li key={event.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
-              <span>{event.action} on {event.resource_type}</span>
-              <time className="text-xs text-slate-500">{new Date(event.created_at).toLocaleString()}</time>
-            </li>
-          )) || <li className="text-slate-500">No recent events</li>}
+          {events.length > 0 ? (
+            events.slice(0, 5).map((event) => (
+              <li key={event.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
+                <span>{event.action} on {event.resource_type}</span>
+                <time className="text-xs text-slate-500">{new Date(event.created_at).toLocaleString()}</time>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No recent events</li>
+          )}
         </ul>
       </section>
     </div>

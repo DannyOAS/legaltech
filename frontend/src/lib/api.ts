@@ -2,6 +2,13 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+interface RequestOptions {
+  method?: HttpMethod;
+  body?: unknown;
+  headers?: HeadersInit;
+  skipAuthRefresh?: boolean;
+}
+
 export interface ApiErrorShape {
   status: number;
   detail?: string;
@@ -27,7 +34,36 @@ function getCsrfToken(): string | undefined {
   return match ? decodeURIComponent(match[1]) : undefined;
 }
 
-async function request<T>(path: string, options: { method?: HttpMethod; body?: unknown; headers?: HeadersInit } = {}): Promise<T> {
+let refreshPromise: Promise<void> | null = null;
+
+async function refreshAuth(): Promise<void> {
+  if (!refreshPromise) {
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    const csrf = getCsrfToken();
+    if (csrf) {
+      headers["X-CSRFToken"] = csrf;
+    }
+    refreshPromise = fetch(`${API_BASE}/auth/refresh/`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({}),
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const contentType = response.headers.get("content-type");
+          const data = contentType && contentType.includes("application/json") ? await response.json() : await response.text();
+          throw new ApiError(response.status, typeof data === "string" ? { status: response.status, detail: data } : data);
+        }
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? "GET";
   const headers: HeadersInit = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (method !== "GET" && method !== "HEAD") {
@@ -45,6 +81,17 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: u
   const contentType = response.headers.get("content-type");
   const data = contentType && contentType.includes("application/json") ? await response.json() : await response.text();
   if (!response.ok) {
+    if (response.status === 401 && !options.skipAuthRefresh && !path.startsWith("/auth/")) {
+      try {
+        await refreshAuth();
+        return request<T>(path, { ...options, skipAuthRefresh: true });
+      } catch (refreshError) {
+        if (refreshError instanceof ApiError) {
+          throw refreshError;
+        }
+        throw refreshError;
+      }
+    }
     throw new ApiError(response.status, typeof data === "string" ? { status: response.status, detail: data } : data);
   }
   return data as T;

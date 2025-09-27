@@ -65,7 +65,8 @@ class RefreshView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
-        serializer = self.get_serializer(data=request.data)
+        refresh_token = request.data.get("refresh") or request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME)
+        serializer = self.get_serializer(data={"refresh": refresh_token})
         serializer.is_valid(raise_exception=True)
         refresh = RefreshToken(serializer.validated_data["refresh"])
         user = User.objects.get(id=refresh["user_id"])

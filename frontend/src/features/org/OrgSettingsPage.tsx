@@ -8,7 +8,7 @@ interface Organization {
 }
 
 interface Settings {
-  organization_id: string;
+  organization_id: string | null;
   features: Record<string, boolean>;
   ca_region: string;
   storage_bucket: string;
@@ -18,16 +18,24 @@ const fetcher = <T,>(url: string) => api.get<T>(url);
 
 const OrgSettingsPage = () => {
   const { data: settings } = useSWR<Settings>("/settings/", fetcher);
-  const { data: org } = useSWR<Organization>(
-    settings ? `/org/${settings.organization_id}/` : null,
-    fetcher
-  );
+  const organizationId = settings ? settings.organization_id : null;
+  const {
+    data: org,
+    error: orgError,
+    isLoading: isOrgLoading,
+  } = useSWR<Organization>(organizationId ? `/org/${organizationId}/` : null, fetcher);
 
   return (
     <div className="space-y-6">
       <section className="rounded bg-white p-6 shadow">
         <h2 className="text-lg font-semibold text-slate-700">Organization Profile</h2>
-        {org ? (
+        {!settings ? (
+          <p className="mt-4 text-sm text-slate-500">Loading...</p>
+        ) : !organizationId ? (
+          <p className="mt-4 text-sm text-red-600">Organization information is not available.</p>
+        ) : isOrgLoading ? (
+          <p className="mt-4 text-sm text-slate-500">Loading...</p>
+        ) : org ? (
           <dl className="mt-4 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
             <div>
               <dt className="font-medium text-slate-500">Name</dt>
@@ -38,6 +46,8 @@ const OrgSettingsPage = () => {
               <dd>{org.region}</dd>
             </div>
           </dl>
+        ) : orgError ? (
+          <p className="mt-4 text-sm text-red-600">Unable to load organization details.</p>
         ) : (
           <p className="mt-4 text-sm text-slate-500">Loading...</p>
         )}
