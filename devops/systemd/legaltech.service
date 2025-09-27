@@ -1,0 +1,24 @@
+[Unit]
+Description=Gunicorn service for Maple Legal Platform
+After=network.target
+
+[Service]
+Type=simple
+User=legaltech
+Group=legaltech
+WorkingDirectory=/opt/legaltech/backend
+Environment="PATH=/opt/legaltech/.venv/bin"
+EnvironmentFile=/opt/legaltech/backend/.env
+ExecStart=/opt/legaltech/.venv/bin/gunicorn \
+    --workers 4 \
+    --bind unix:/run/legaltech/gunicorn.sock \
+    --access-logfile - \
+    --error-logfile - \
+    core.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RuntimeDirectory=legaltech
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target
