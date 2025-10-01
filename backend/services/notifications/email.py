@@ -1,4 +1,5 @@
 """Notification helpers for outbound email."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,7 +24,9 @@ def send_email(request: EmailRequest) -> None:
     email.send(fail_silently=False)
 
 
-def send_invitation_email(*, to: str, organization_name: str, role_name: str, invite_link: str, expires_at) -> None:
+def send_invitation_email(
+    *, to: str, organization_name: str, role_name: str, invite_link: str, expires_at
+) -> None:
     subject = f"You're invited to {organization_name} on Maple Legal"
     body = (
         f"Hello,\n\n"
@@ -35,18 +38,20 @@ def send_invitation_email(*, to: str, organization_name: str, role_name: str, in
     send_email(EmailRequest(to=[to], subject=subject, body=body))
 
 
-def send_document_uploaded_email(*, to: str, matter_title: str, filename: str, download_link: str | None = None) -> None:
+def send_document_uploaded_email(
+    *, to: str, matter_title: str, filename: str, download_link: str | None = None
+) -> None:
     subject = f"New document available for {matter_title}"
-    body = (
-        f"Hello,\n\nA new document '{filename}' has been uploaded for matter {matter_title}."
-    )
+    body = f"Hello,\n\nA new document '{filename}' has been uploaded for matter {matter_title}."
     if download_link:
         body += f"\nYou can access it here: {download_link}"
     body += "\n\nRegards,\nMaple Legal"
     send_email(EmailRequest(to=[to], subject=subject, body=body))
 
 
-def send_invoice_created_email(*, to: str, matter_title: str, invoice_number: str, amount: str) -> None:
+def send_invoice_created_email(
+    *, to: str, matter_title: str, invoice_number: str, amount: str
+) -> None:
     subject = f"Invoice {invoice_number} for {matter_title}"
     body = (
         f"Hello,\n\nA new invoice {invoice_number} totalling {amount} is ready for matter {matter_title}."

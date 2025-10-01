@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0004_organization_matter_sequence'),
+        ("accounts", "0004_organization_matter_sequence"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='invitation',
-            name='metadata',
+            model_name="invitation",
+            name="metadata",
             field=models.JSONField(blank=True, default=dict),
         ),
     ]

@@ -1,4 +1,5 @@
 """Ontario case deadline calculator stub."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,4 +16,4 @@ class Deadline:
 
 def calculate_deadlines(event_type: str, filing_date: date, court: str = "ONSC") -> List[Deadline]:
     base = filing_date + timedelta(days=30)
-    return [Deadline(name=f"{event_type} response", due_date=base, rule_reference=f"{court}-R1")] 
+    return [Deadline(name=f"{event_type} response", due_date=base, rule_reference=f"{court}-R1")]

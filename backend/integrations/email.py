@@ -1,4 +1,5 @@
 """Email sending stub for notifications."""
+
 from django.core.mail import send_mail
 
 

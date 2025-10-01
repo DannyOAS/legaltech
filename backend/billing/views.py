@@ -1,8 +1,9 @@
 """Billing API viewsets."""
+
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
 from django.db.models import Sum
@@ -12,16 +13,20 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsOrganizationMember
-from notifications.service import send_notification
 from config.tenancy import OrganizationModelViewSet
+from notifications.service import send_notification
 from services.audit.logging import audit_action
 from services.notifications.email import send_invoice_created_email
 from services.storage.presign import generate_get_url
 
 from .models import Expense, Invoice, Payment, TimeEntry
 from .pdf import ensure_invoice_pdf, regenerate_invoice_pdf
-from .serializers import ExpenseSerializer, InvoiceSerializer, PaymentSerializer, TimeEntrySerializer
+from .serializers import (
+    ExpenseSerializer,
+    InvoiceSerializer,
+    PaymentSerializer,
+    TimeEntrySerializer,
+)
 
 
 class TimeEntryViewSet(OrganizationModelViewSet):
@@ -31,7 +36,14 @@ class TimeEntryViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         entry = serializer.save(organization=self.request.user.organization, user=self.request.user)
-        audit_action(self.request.organization_id, self.request.user.id, "billing.time_entry.created", "time_entry", str(entry.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "billing.time_entry.created",
+            "time_entry",
+            str(entry.id),
+            self.request,
+        )
 
 
 class ExpenseViewSet(OrganizationModelViewSet):
@@ -40,7 +52,14 @@ class ExpenseViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         expense = serializer.save(organization=self.request.user.organization)
-        audit_action(self.request.organization_id, self.request.user.id, "billing.expense.created", "expense", str(expense.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "billing.expense.created",
+            "expense",
+            str(expense.id),
+            self.request,
+        )
 
 
 class InvoiceViewSet(OrganizationModelViewSet):
@@ -58,7 +77,14 @@ class InvoiceViewSet(OrganizationModelViewSet):
     def perform_create(self, serializer):
         invoice = serializer.save(organization=self.request.user.organization)
         ensure_invoice_pdf(invoice)
-        audit_action(self.request.organization_id, self.request.user.id, "billing.invoice.created", "invoice", str(invoice.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "billing.invoice.created",
+            "invoice",
+            str(invoice.id),
+            self.request,
+        )
         matter = invoice.matter
         client_user = matter.client.portal_user if matter and matter.client else None
         if client_user and invoice.status == "sent":
@@ -106,7 +132,14 @@ class InvoiceViewSet(OrganizationModelViewSet):
                 invoice_number=invoice.number,
                 amount=str(invoice.total),
             )
-        audit_action(self.request.organization_id, self.request.user.id, "billing.invoice.sent", "invoice", str(invoice.id), request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "billing.invoice.sent",
+            "invoice",
+            str(invoice.id),
+            request,
+        )
         return Response(self.get_serializer(invoice).data)
 
     @action(detail=True, methods=["post"], url_path="mark-paid")
@@ -122,7 +155,9 @@ class InvoiceViewSet(OrganizationModelViewSet):
         try:
             parsed_date = date.fromisoformat(payment_date) if payment_date else date.today()
         except ValueError:
-            return Response({"date": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"date": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         with transaction.atomic():
             Payment.objects.create(
@@ -136,7 +171,14 @@ class InvoiceViewSet(OrganizationModelViewSet):
             invoice.status = "paid"
             invoice.save(update_fields=["status"])
 
-        audit_action(self.request.organization_id, self.request.user.id, "billing.invoice.paid", "invoice", str(invoice.id), request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "billing.invoice.paid",
+            "invoice",
+            str(invoice.id),
+            request,
+        )
         return Response(self.get_serializer(invoice).data)
 
     @action(detail=True, methods=["get"], url_path="download")
@@ -162,7 +204,14 @@ class PaymentViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         payment = serializer.save(organization=self.request.user.organization)
-        audit_action(self.request.organization_id, self.request.user.id, "billing.payment.recorded", "payment", str(payment.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "billing.payment.recorded",
+            "payment",
+            str(payment.id),
+            self.request,
+        )
 
 
 class BillingSummaryView(APIView):
@@ -173,14 +222,28 @@ class BillingSummaryView(APIView):
     def get(self, request):
         org_id = getattr(request, "organization_id", None)
         if not org_id:
-            return Response({"detail": "Organization context required"}, status=status.HTTP_400_BAD_REQUEST)
-        hours = TimeEntry.objects.filter(organization_id=org_id).aggregate(total_minutes=Sum("minutes"))
+            return Response(
+                {"detail": "Organization context required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        hours = TimeEntry.objects.filter(organization_id=org_id).aggregate(
+            total_minutes=Sum("minutes")
+        )
         expenses = Expense.objects.filter(organization_id=org_id).aggregate(total=Sum("amount"))
-        outstanding = Invoice.objects.filter(organization_id=org_id).exclude(status="paid").aggregate(total=Sum("total"))
+        outstanding = (
+            Invoice.objects.filter(organization_id=org_id)
+            .exclude(status="paid")
+            .aggregate(total=Sum("total"))
+        )
         total_minutes = Decimal(hours["total_minutes"] or 0)
-        total_hours = (total_minutes / Decimal(60)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        total_expenses = (expenses["total"] or Decimal("0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        outstanding_balance = (outstanding["total"] or Decimal("0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_hours = (total_minutes / Decimal(60)).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        total_expenses = (expenses["total"] or Decimal("0")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        outstanding_balance = (outstanding["total"] or Decimal("0")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
         payload = {
             "total_hours": f"{total_hours:.2f}",
             "total_expenses": f"{total_expenses:.2f}",

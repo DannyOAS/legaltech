@@ -1,4 +1,5 @@
 """Portal models for secure collaboration."""
+
 from __future__ import annotations
 
 import secrets
@@ -13,7 +14,9 @@ from matters.models import Client, Matter
 
 class Document(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, related_name="documents", on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="documents", on_delete=models.CASCADE
+    )
     matter = models.ForeignKey(Matter, related_name="documents", on_delete=models.CASCADE)
     owner = models.ForeignKey(User, related_name="uploaded_documents", on_delete=models.CASCADE)
     filename = models.CharField(max_length=255)
@@ -26,7 +29,12 @@ class Document(models.Model):
     version = models.PositiveIntegerField(default=1)
     scan_status = models.CharField(
         max_length=16,
-        choices=[("pending", "Pending"), ("clean", "Clean"), ("infected", "Infected"), ("failed", "Failed")],
+        choices=[
+            ("pending", "Pending"),
+            ("clean", "Clean"),
+            ("infected", "Infected"),
+            ("failed", "Failed"),
+        ],
         default="pending",
     )
     scan_message = models.CharField(max_length=255, blank=True)
@@ -42,7 +50,9 @@ class Document(models.Model):
 class DocumentVersion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     document = models.ForeignKey(Document, related_name="versions", on_delete=models.CASCADE)
-    organization = models.ForeignKey(Organization, related_name="document_versions", on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="document_versions", on_delete=models.CASCADE
+    )
     version_number = models.PositiveIntegerField()
     filename = models.CharField(max_length=255)
     mime = models.CharField(max_length=120)
@@ -50,7 +60,9 @@ class DocumentVersion(models.Model):
     s3_key = models.CharField(max_length=512)
     sha256 = models.CharField(max_length=64)
     uploaded_at = models.DateTimeField(auto_now_add=True)
-    uploaded_by = models.ForeignKey(User, related_name="document_versions", on_delete=models.SET_NULL, null=True)
+    uploaded_by = models.ForeignKey(
+        User, related_name="document_versions", on_delete=models.SET_NULL, null=True
+    )
 
     class Meta:
         ordering = ["-uploaded_at"]
@@ -59,8 +71,12 @@ class DocumentVersion(models.Model):
 class DocumentComment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     document = models.ForeignKey(Document, related_name="comments", on_delete=models.CASCADE)
-    organization = models.ForeignKey(Organization, related_name="document_comments", on_delete=models.CASCADE)
-    author = models.ForeignKey(User, related_name="document_comments", on_delete=models.SET_NULL, null=True)
+    organization = models.ForeignKey(
+        Organization, related_name="document_comments", on_delete=models.CASCADE
+    )
+    author = models.ForeignKey(
+        User, related_name="document_comments", on_delete=models.SET_NULL, null=True
+    )
     body = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -70,7 +86,9 @@ class DocumentComment(models.Model):
 
 class MessageThread(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, related_name="message_threads", on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="message_threads", on_delete=models.CASCADE
+    )
     matter = models.ForeignKey(Matter, related_name="threads", on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -80,10 +98,16 @@ class MessageThread(models.Model):
 
 class Message(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, related_name="messages", on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="messages", on_delete=models.CASCADE
+    )
     thread = models.ForeignKey(MessageThread, related_name="messages", on_delete=models.CASCADE)
-    sender_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="messages_sent")
-    sender_client = models.ForeignKey(Client, null=True, blank=True, on_delete=models.SET_NULL, related_name="messages_sent")
+    sender_user = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="messages_sent"
+    )
+    sender_client = models.ForeignKey(
+        Client, null=True, blank=True, on_delete=models.SET_NULL, related_name="messages_sent"
+    )
     body = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     attachments = models.ManyToManyField(Document, blank=True, related_name="attached_to")
@@ -98,7 +122,9 @@ class Message(models.Model):
 
 class ShareLink(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, related_name="share_links", on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="share_links", on_delete=models.CASCADE
+    )
     document = models.ForeignKey(Document, related_name="share_links", on_delete=models.CASCADE)
     token = models.CharField(max_length=128, unique=True)
     expires_at = models.DateTimeField()

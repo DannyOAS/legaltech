@@ -1,4 +1,5 @@
 """Matter domain viewsets."""
+
 from __future__ import annotations
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,7 +20,14 @@ class ClientViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         client = serializer.save(organization=self.request.user.organization)
-        audit_action(self.request.organization_id, self.request.user.id, "client.created", "client", str(client.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "client.created",
+            "client",
+            str(client.id),
+            self.request,
+        )
 
 
 class MatterViewSet(OrganizationModelViewSet):
@@ -31,4 +39,11 @@ class MatterViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         matter = serializer.save(organization=self.request.user.organization)
-        audit_action(self.request.organization_id, self.request.user.id, "matter.created", "matter", str(matter.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "matter.created",
+            "matter",
+            str(matter.id),
+            self.request,
+        )

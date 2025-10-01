@@ -1,14 +1,13 @@
 """API endpoint for calculating case deadlines."""
-from __future__ import annotations
 
-from datetime import date
+from __future__ import annotations
 
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .engine import Deadline, calculate_deadlines
+from .engine import calculate_deadlines
 
 
 class DeadlineRequestSerializer(serializers.Serializer):

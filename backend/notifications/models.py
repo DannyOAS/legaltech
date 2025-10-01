@@ -1,4 +1,5 @@
 """Notification models."""
+
 from __future__ import annotations
 
 import uuid
@@ -11,8 +12,12 @@ class Notification(models.Model):
     """In-app notification delivered to a specific user."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey("accounts.Organization", on_delete=models.CASCADE, related_name="notifications")
-    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
+    organization = models.ForeignKey(
+        "accounts.Organization", on_delete=models.CASCADE, related_name="notifications"
+    )
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
+    )
     notification_type = models.CharField(max_length=64)
     title = models.CharField(max_length=255)
     body = models.TextField(blank=True)

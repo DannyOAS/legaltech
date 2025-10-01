@@ -1,8 +1,14 @@
 """Routing for client portal endpoints."""
+
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import ClientDashboardView, ClientDocumentViewSet, ClientInvoiceViewSet, ClientMatterViewSet
+from .views import (
+    ClientDashboardView,
+    ClientDocumentViewSet,
+    ClientInvoiceViewSet,
+    ClientMatterViewSet,
+)
 
 router = DefaultRouter()
 router.register("client/documents", ClientDocumentViewSet, basename="client-documents")

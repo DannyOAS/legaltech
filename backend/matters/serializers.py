@@ -1,4 +1,5 @@
 """Serializers for clients and matters."""
+
 from __future__ import annotations
 
 from rest_framework import serializers
@@ -28,7 +29,9 @@ class ClientSerializer(serializers.ModelSerializer):
 
 class MatterSerializer(serializers.ModelSerializer):
     client = ClientSerializer(read_only=True)
-    client_id = OrganizationScopedPrimaryKeyRelatedField(queryset=Client.objects.all(), source="client", write_only=True)
+    client_id = OrganizationScopedPrimaryKeyRelatedField(
+        queryset=Client.objects.all(), source="client", write_only=True
+    )
     lead_lawyer = OrganizationScopedPrimaryKeyRelatedField(
         queryset=User.objects.all(), allow_null=True, required=False
     )
