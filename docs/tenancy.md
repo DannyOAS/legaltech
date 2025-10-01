@@ -46,3 +46,4 @@ sequenceDiagram
 - Add org-aware caching keys (Redis)
 - Partition large tables by `organization_id`
 - Integrate billing by organization for metered SaaS pricing
+- Harden client portal queries (currently limited via `ClientPortalMixin`) for future offline access

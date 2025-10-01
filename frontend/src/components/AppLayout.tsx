@@ -1,17 +1,30 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../features/auth/AuthContext";
-
-const navItems = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/clients", label: "Clients" },
-  { to: "/matters", label: "Matters" },
-  { to: "/billing", label: "Billing" },
-  { to: "/portal", label: "Portal" },
-  { to: "/settings", label: "Org Settings" }
-];
+import NotificationBell from "./NotificationBell";
 
 const AppLayout = () => {
   const { user, logout } = useAuth();
+  const isClient = user?.roles?.includes("Client");
+
+  const navItems = isClient
+    ? [
+        { to: "/dashboard", label: "Dashboard" },
+        { to: "/client/matters", label: "My Matters" },
+        { to: "/client/documents", label: "My Documents" },
+        { to: "/client/invoices", label: "My Invoices" },
+      ]
+    : [
+        { to: "/dashboard", label: "Dashboard" },
+        { to: "/clients", label: "Clients" },
+        { to: "/matters", label: "Matters" },
+        { to: "/billing", label: "Billing" },
+        { to: "/portal", label: "Portal" },
+        { to: "/settings", label: "Org Settings" },
+      ];
+
+  const displayName = user
+    ? [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email
+    : "";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -22,7 +35,8 @@ const AppLayout = () => {
             <p className="text-xs text-slate-500">Ontario legal operations suite</p>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600">{user?.first_name} {user?.last_name}</span>
+            {!isClient && <NotificationBell />}
+            <span className="text-sm text-slate-600">{displayName}</span>
             <button
               onClick={logout}
               className="rounded border border-slate-200 px-3 py-1 text-sm hover:border-primary-500 hover:text-primary-600"

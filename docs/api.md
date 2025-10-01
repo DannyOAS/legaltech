@@ -9,8 +9,9 @@ Base URL: `/api/v1/`
 | `/auth/login/` | POST | Authenticate with email/password, returns user payload and sets cookies |
 | `/auth/logout/` | POST | Clear JWT cookies |
 | `/auth/refresh/` | POST | Refresh access token using refresh token |
-| `/auth/mfa/setup/` | POST | Returns TOTP secret + QR stub |
-| `/auth/mfa/verify/` | POST | Verify MFA token (stub, expects `000000`) |
+| `/auth/mfa/setup/` | POST | Generate TOTP secret + provisioning URI |
+| `/auth/mfa/verify/` | POST | Verify TOTP token and enable MFA |
+| `/auth/invite/accept/` | POST | Accept invitation token and create account |
 
 ### Login Request
 
@@ -41,12 +42,13 @@ Base URL: `/api/v1/`
 - `/users/me/` GET – current user profile
 - `/roles/` GET/POST
 - `/invitations/` GET/POST/DELETE
+- `/invitations/{id}/resend/` POST – resend invitation email
 - `/api-tokens/` GET/POST/DELETE
 
 ## Clients & Matters
 
 - `/clients/` – list/create clients
-- `/matters/` – list/create matters
+- `/matters/` – list/create matters (leave `reference_code` blank to auto-generate per-organization file numbers)
 - `/matters/{id}/` – retrieve/update
 
 ## Billing
@@ -65,6 +67,16 @@ Base URL: `/api/v1/`
 - `/messages/` – create messages with attachments
 - `/share-links/` – manage secure links
 - `/share-links/resolve/{token}/` – public resolution endpoint
+- `/notifications/` GET – list in-app notifications for the authenticated user
+- `/notifications/{id}/read/` POST – mark a notification as read
+
+## Client Portal
+
+- `/client/dashboard/` GET – aggregate view for client balances and recent documents
+- `/client/documents/` GET – client-visible documents (requires `client_visible=true`)
+- `/client/invoices/` GET – invoices tied to the authenticated client user
+
+> Client-role accounts are limited to the `/client/...` endpoints; organization management, billing, and portal CRUD APIs return `403` for client users.
 
 ## Integrations
 

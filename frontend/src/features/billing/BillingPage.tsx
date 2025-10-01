@@ -43,12 +43,26 @@ interface Expense {
   receipt_file: string;
 }
 
+interface InvoiceRecord {
+  id: string;
+  matter: string;
+  number: string;
+  issue_date: string;
+  due_date: string;
+  subtotal: string;
+  tax_total: string;
+  total: string;
+  status: "draft" | "sent" | "paid" | "overdue";
+  pdf_file: string | null;
+}
+
 interface PaginatedResponse<T> {
   results: T[];
   count: number;
 }
 
 const fetcher = <T,>(url: string) => api.get<T>(url);
+const PAGE_SIZE = 10;
 
 interface TimeEntryFormState {
   matter: string;
@@ -95,26 +109,83 @@ const sourceOptions = [
   { value: "call", label: "Phone Call" },
 ];
 
+const invoiceStatusOptions = [
+  { value: "all", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "sent", label: "Sent" },
+  { value: "paid", label: "Paid" },
+  { value: "overdue", label: "Overdue" },
+];
+
 const BillingPage = () => {
   const toast = useToast();
+  const [timePage, setTimePage] = useState(0);
+  const [timeSearch, setTimeSearch] = useState("");
+  const timeOffset = timePage * PAGE_SIZE;
+  const timeEntriesKey = useMemo(() => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(timeOffset) });
+    if (timeSearch.trim()) {
+      params.set("search", timeSearch.trim());
+    }
+    return `/time-entries/?${params.toString()}`;
+  }, [timeOffset, timeSearch]);
+  const [expensePage, setExpensePage] = useState(0);
+  const [expenseSearch, setExpenseSearch] = useState("");
+  const expenseOffset = expensePage * PAGE_SIZE;
+  const expensesKey = useMemo(() => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(expenseOffset) });
+    if (expenseSearch.trim()) {
+      params.set("search", expenseSearch.trim());
+    }
+    return `/expenses/?${params.toString()}`;
+  }, [expenseOffset, expenseSearch]);
   const { data: summary, mutate: mutateSummary } = useSWR<BillingSummary>("/reports/billing-summary/", fetcher);
   const {
     data: timeEntriesData,
     mutate: mutateTimeEntries,
     isLoading: isTimeLoading,
-  } = useSWR<PaginatedResponse<TimeEntry>>("/time-entries/", fetcher);
+  } = useSWR<PaginatedResponse<TimeEntry>>(timeEntriesKey, fetcher);
   const {
     data: expensesData,
     mutate: mutateExpenses,
     isLoading: isExpenseLoading,
-  } = useSWR<PaginatedResponse<Expense>>("/expenses/", fetcher);
-  const { data: mattersData } = useSWR<PaginatedResponse<MatterOption>>("/matters/", fetcher);
+  } = useSWR<PaginatedResponse<Expense>>(expensesKey, fetcher);
+  const [invoicePage, setInvoicePage] = useState(0);
+  const [invoiceStatus, setInvoiceStatus] = useState("all");
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const invoiceOffset = invoicePage * PAGE_SIZE;
+  const invoicesKey = useMemo(() => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(invoiceOffset) });
+    if (invoiceStatus !== "all") {
+      params.set("status", invoiceStatus);
+    }
+    if (invoiceSearch.trim()) {
+      params.set("search", invoiceSearch.trim());
+    }
+    return `/invoices/?${params.toString()}`;
+  }, [invoiceOffset, invoiceStatus, invoiceSearch]);
+  const {
+    data: invoicesData,
+    mutate: mutateInvoices,
+    isLoading: isInvoiceLoading,
+  } = useSWR<PaginatedResponse<InvoiceRecord>>(invoicesKey, fetcher);
+  const { data: mattersData } = useSWR<PaginatedResponse<MatterOption>>("/matters/?limit=500", fetcher);
 
   const matters = mattersData?.results ?? [];
   const matterLookup = useMemo(() => new Map(matters.map((matter) => [matter.id, matter])), [matters]);
 
   const timeEntries = timeEntriesData?.results ?? [];
+  const totalTimeEntries = timeEntriesData?.count ?? 0;
   const expenses = expensesData?.results ?? [];
+  const totalExpenses = expensesData?.count ?? 0;
+  const hasPreviousTime = timePage > 0;
+  const hasNextTime = timeOffset + timeEntries.length < totalTimeEntries;
+  const hasPreviousExpense = expensePage > 0;
+  const hasNextExpense = expenseOffset + expenses.length < totalExpenses;
+  const invoices = invoicesData?.results ?? [];
+  const totalInvoices = invoicesData?.count ?? 0;
+  const hasPreviousInvoice = invoicePage > 0;
+  const hasNextInvoice = invoiceOffset + invoices.length < totalInvoices;
 
   const [timeForm, setTimeForm] = useState<TimeEntryFormState>(defaultTimeEntryForm);
   const [timeErrors, setTimeErrors] = useState<Partial<Record<keyof TimeEntryFormState, string>>>({});
@@ -131,6 +202,9 @@ const BillingPage = () => {
   const [isSavingExpense, setIsSavingExpense] = useState(false);
   const [deleteExpenseTarget, setDeleteExpenseTarget] = useState<Expense | null>(null);
   const [isDeletingExpense, setIsDeletingExpense] = useState(false);
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
+  const [markingInvoiceId, setMarkingInvoiceId] = useState<string | null>(null);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
 
   const resetTimeForm = useCallback(() => {
     setTimeForm({ ...defaultTimeEntryForm, matter: matters[0]?.id ?? "" });
@@ -228,6 +302,26 @@ const BillingPage = () => {
     }
   };
 
+  const handleTimeSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setTimeSearch(event.target.value);
+    setTimePage(0);
+  };
+
+  const handleExpenseSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setExpenseSearch(event.target.value);
+    setExpensePage(0);
+  };
+
+  const handleInvoiceSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setInvoiceSearch(event.target.value);
+    setInvoicePage(0);
+  };
+
+  const handleInvoiceStatusChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setInvoiceStatus(event.target.value);
+    setInvoicePage(0);
+  };
+
   const validateTimeForm = () => {
     const errors: Partial<Record<keyof TimeEntryFormState, string>> = {};
     if (!timeForm.matter) errors.matter = "Select a matter";
@@ -274,6 +368,7 @@ const BillingPage = () => {
         await api.patch(`/time-entries/${editingTime!.id}/`, payload);
       } else {
         await api.post("/time-entries/", payload);
+        setTimePage(0);
       }
       await Promise.all([mutateTimeEntries(), mutateSummary()]);
       toast.success(`Time entry ${isEdit ? "updated" : "captured"}`, `${payload.description.slice(0, 40)} saved.`);
@@ -310,6 +405,7 @@ const BillingPage = () => {
         await api.patch(`/expenses/${editingExpense!.id}/`, payload);
       } else {
         await api.post("/expenses/", payload);
+        setExpensePage(0);
       }
       await Promise.all([mutateExpenses(), mutateSummary()]);
       toast.success(`Expense ${isEdit ? "updated" : "recorded"}`, `${payload.description.slice(0, 40)} saved.`);
@@ -330,7 +426,13 @@ const BillingPage = () => {
     setIsDeletingTime(true);
     try {
       await api.delete(`/time-entries/${deleteTimeTarget.id}/`);
-      await Promise.all([mutateTimeEntries(), mutateSummary()]);
+      const [updated] = await Promise.all([mutateTimeEntries(), mutateSummary()]);
+      const remaining = updated?.count ?? 0;
+      if (remaining === 0) {
+        setTimePage(0);
+      } else if (remaining <= timeOffset && timePage > 0) {
+        setTimePage((prev) => Math.max(prev - 1, 0));
+      }
       toast.success("Time entry removed", "The entry has been deleted.");
       setDeleteTimeTarget(null);
     } catch (error) {
@@ -345,13 +447,88 @@ const BillingPage = () => {
     setIsDeletingExpense(true);
     try {
       await api.delete(`/expenses/${deleteExpenseTarget.id}/`);
-      await Promise.all([mutateExpenses(), mutateSummary()]);
+      const [updated] = await Promise.all([mutateExpenses(), mutateSummary()]);
+      const remaining = updated?.count ?? 0;
+      if (remaining === 0) {
+        setExpensePage(0);
+      } else if (remaining <= expenseOffset && expensePage > 0) {
+        setExpensePage((prev) => Math.max(prev - 1, 0));
+      }
       toast.success("Expense removed", "The expense has been deleted.");
       setDeleteExpenseTarget(null);
     } catch (error) {
       toast.error("Unable to delete", error instanceof ApiError ? error.payload.detail ?? "" : "Try again later.");
     } finally {
       setIsDeletingExpense(false);
+    }
+  };
+
+  const handleSendInvoice = async (invoice: InvoiceRecord) => {
+    if (invoice.status === "paid") {
+      toast.info("Invoice already paid", "This invoice has already been settled.");
+      return;
+    }
+    setSendingInvoiceId(invoice.id);
+    try {
+      await api.post(`/invoices/${invoice.id}/send/`);
+      await Promise.all([mutateInvoices(), mutateSummary()]);
+      toast.success("Invoice sent", `${invoice.number} emailed to the client.`);
+    } catch (error) {
+      toast.error(
+        "Unable to send invoice",
+        error instanceof ApiError ? error.payload.detail ?? "Try again later." : "Unexpected error occurred.",
+      );
+    } finally {
+      setSendingInvoiceId(null);
+    }
+  };
+
+  const handleMarkInvoicePaid = async (invoice: InvoiceRecord) => {
+    if (invoice.status === "paid") {
+      toast.info("Already paid", "This invoice is already marked as paid.");
+      return;
+    }
+    setMarkingInvoiceId(invoice.id);
+    try {
+      await api.post(`/invoices/${invoice.id}/mark-paid/`, {
+        amount: Number(invoice.total),
+        method: "manual",
+      });
+      await Promise.all([mutateInvoices(), mutateSummary()]);
+      toast.success("Payment recorded", `${invoice.number} marked as paid.`);
+    } catch (error) {
+      toast.error(
+        "Unable to mark paid",
+        error instanceof ApiError ? error.payload.detail ?? "Try again later." : "Unexpected error occurred.",
+      );
+    } finally {
+      setMarkingInvoiceId(null);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoice: InvoiceRecord) => {
+    setDownloadingInvoiceId(invoice.id);
+    try {
+      const response = await api.get<{ url: string | { url: string } }>(`/invoices/${invoice.id}/download/`);
+      const url = typeof response.url === "string" ? response.url : response.url?.url;
+      if (!url) {
+        throw new Error("No download URL returned");
+      }
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.number}.pdf`;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Download started", `${invoice.number} opened in a new tab.`);
+    } catch (error) {
+      toast.error(
+        "Unable to download",
+        error instanceof ApiError ? error.payload.detail ?? "Try again later." : "Unexpected error occurred.",
+      );
+    } finally {
+      setDownloadingInvoiceId(null);
     }
   };
 
@@ -385,11 +562,20 @@ const BillingPage = () => {
       </section>
 
       <section className="rounded-lg bg-white p-6 shadow">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-semibold text-slate-700">Time Entries</h3>
-          <Button onClick={() => openTimeModal()} disabled={matters.length === 0}>
-            Log Time
-          </Button>
+          <div className="flex flex-1 items-center gap-3 sm:justify-end">
+            <input
+              type="search"
+              value={timeSearch}
+              onChange={handleTimeSearchChange}
+              placeholder="Search time entries..."
+              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            />
+            <Button onClick={() => openTimeModal()} disabled={matters.length === 0}>
+              Log Time
+            </Button>
+          </div>
         </div>
         {matters.length === 0 ? (
           <p className="text-sm text-amber-600">Create a matter before logging time.</p>
@@ -439,14 +625,54 @@ const BillingPage = () => {
             </table>
           </div>
         )}
+        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {totalTimeEntries === 0
+              ? "No results"
+              : timeEntries.length === 0
+              ? `Showing 0 of ${totalTimeEntries}`
+              : `Showing ${timeOffset + 1}-${timeOffset + timeEntries.length} of ${totalTimeEntries}`}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTimePage((prev) => Math.max(prev - 1, 0))}
+              disabled={!hasPreviousTime}
+              className={`rounded border px-3 py-1 text-sm transition-colors ${
+                hasPreviousTime ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+              }`}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimePage((prev) => (hasNextTime ? prev + 1 : prev))}
+              disabled={!hasNextTime}
+              className={`rounded border px-3 py-1 text-sm transition-colors ${
+                hasNextTime ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-lg bg-white p-6 shadow">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-semibold text-slate-700">Expenses</h3>
-          <Button onClick={() => openExpenseModal()} disabled={matters.length === 0}>
-            Record Expense
-          </Button>
+          <div className="flex flex-1 items-center gap-3 sm:justify-end">
+            <input
+              type="search"
+              value={expenseSearch}
+              onChange={handleExpenseSearchChange}
+              placeholder="Search expenses..."
+              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            />
+            <Button onClick={() => openExpenseModal()} disabled={matters.length === 0}>
+              Record Expense
+            </Button>
+          </div>
         </div>
         {isExpenseLoading ? (
           <div className="flex justify-center py-10">
@@ -493,6 +719,165 @@ const BillingPage = () => {
             </table>
           </div>
         )}
+        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {totalExpenses === 0
+              ? "No results"
+              : expenses.length === 0
+              ? `Showing 0 of ${totalExpenses}`
+              : `Showing ${expenseOffset + 1}-${expenseOffset + expenses.length} of ${totalExpenses}`}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExpensePage((prev) => Math.max(prev - 1, 0))}
+              disabled={!hasPreviousExpense}
+              className={`rounded border px-3 py-1 text-sm transition-colors ${
+                hasPreviousExpense ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+              }`}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpensePage((prev) => (hasNextExpense ? prev + 1 : prev))}
+              disabled={!hasNextExpense}
+              className={`rounded border px-3 py-1 text-sm transition-colors ${
+                hasNextExpense ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg bg-white p-6 shadow">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-lg font-semibold text-slate-700">Invoices</h3>
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <input
+              type="search"
+              value={invoiceSearch}
+              onChange={handleInvoiceSearchChange}
+              placeholder="Search invoices..."
+              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            />
+            <select
+              value={invoiceStatus}
+              onChange={handleInvoiceStatusChange}
+              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            >
+              {invoiceStatusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {isInvoiceLoading ? (
+          <div className="flex justify-center py-10">
+            <Spinner size="lg" />
+          </div>
+        ) : invoices.length === 0 ? (
+          <p className="text-sm text-slate-500">No invoices yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Number</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Issued</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Due</th>
+                  <th className="px-3 py-2 text-right font-medium text-slate-600">Total</th>
+                  <th className="px-3 py-2 text-right font-medium text-slate-600">Status</th>
+                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {invoices.map((invoice) => (
+                  <tr key={invoice.id}>
+                    <td className="px-3 py-2">{invoice.number}</td>
+                    <td className="px-3 py-2">{renderMatterName(invoice.matter)}</td>
+                    <td className="px-3 py-2">{new Date(invoice.issue_date).toLocaleDateString()}</td>
+                    <td className="px-3 py-2">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                    <td className="px-3 py-2 text-right">${Number(invoice.total).toFixed(2)}</td>
+                    <td className={`px-3 py-2 text-right capitalize ${
+                      invoice.status === "paid"
+                        ? "text-emerald-600"
+                        : invoice.status === "overdue"
+                        ? "text-red-600"
+                        : "text-slate-600"
+                    }`}>
+                      {invoice.status}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleSendInvoice(invoice)}
+                          disabled={sendingInvoiceId === invoice.id || invoice.status === "paid"}
+                        >
+                          {sendingInvoiceId === invoice.id ? "Sending..." : "Send"}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleMarkInvoicePaid(invoice)}
+                          disabled={markingInvoiceId === invoice.id || invoice.status === "paid"}
+                        >
+                          {markingInvoiceId === invoice.id ? "Saving..." : "Mark Paid"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadInvoice(invoice)}
+                          disabled={downloadingInvoiceId === invoice.id}
+                        >
+                          {downloadingInvoiceId === invoice.id ? "Preparing..." : "Download"}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {totalInvoices === 0
+              ? "No results"
+              : invoices.length === 0
+              ? `Showing 0 of ${totalInvoices}`
+              : `Showing ${invoiceOffset + 1}-${invoiceOffset + invoices.length} of ${totalInvoices}`}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setInvoicePage((prev) => Math.max(prev - 1, 0))}
+              disabled={!hasPreviousInvoice}
+              className={`rounded border px-3 py-1 text-sm transition-colors ${
+                hasPreviousInvoice ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+              }`}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => setInvoicePage((prev) => (hasNextInvoice ? prev + 1 : prev))}
+              disabled={!hasNextInvoice}
+              className={`rounded border px-3 py-1 text-sm transition-colors ${
+                hasNextInvoice ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </section>
 
       <Modal

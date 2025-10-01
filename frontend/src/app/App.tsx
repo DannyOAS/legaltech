@@ -6,17 +6,25 @@ import BillingPage from "../features/billing/BillingPage";
 import InvoiceDetailPage from "../features/billing/InvoiceDetailPage";
 import ClientsPage from "../features/clients/ClientsPage";
 import LoginPage from "../features/auth/LoginPage";
+import ClientLoginPage from "../features/auth/ClientLoginPage";
+import InviteAcceptPage from "../features/auth/InviteAcceptPage";
 import MattersPage from "../features/matters/MattersPage";
 import MatterDetailPage from "../features/matters/MatterDetailPage";
 import PortalPage from "../features/portal/PortalPage";
 import MatterPortalPage from "../features/portal/MatterPortalPage";
 import OrgSettingsPage from "../features/org/OrgSettingsPage";
 import DashboardPage from "./DashboardPage";
+import ClientDocumentsPage from "../features/client/ClientDocumentsPage";
+import ClientInvoicesPage from "../features/client/ClientInvoicesPage";
+import ClientMattersPage from "../features/client/ClientMattersPage";
+import ClientMatterDetailPage from "../features/client/ClientMatterDetailPage";
 
 const App = () => (
   <AuthProvider>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/login-client" element={<ClientLoginPage />} />
+      <Route path="/invite/accept" element={<InviteAcceptPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" />} />
@@ -29,6 +37,10 @@ const App = () => (
           <Route path="/portal" element={<PortalPage />} />
           <Route path="/portal/:matterId" element={<MatterPortalPage />} />
           <Route path="/settings" element={<OrgSettingsPage />} />
+          <Route path="/client/documents" element={<ClientDocumentsPage />} />
+          <Route path="/client/matters" element={<ClientMattersPage />} />
+          <Route path="/client/matters/:id" element={<ClientMatterDetailPage />} />
+          <Route path="/client/invoices" element={<ClientInvoicesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" />} />

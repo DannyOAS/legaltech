@@ -47,8 +47,11 @@ INSTALLED_APPS = [
     "matters",
     "billing",
     "portal",
+    "client_portal",
+    "case_rules",
     "integrations",
     "services.audit",
+    "notifications",
 ]
 
 MIDDLEWARE = [
@@ -201,9 +204,10 @@ CONTENT_SECURITY_POLICY = """default-src 'self'; script-src 'self'; style-src 's
 
 # --- Storage ---------------------------------------------------------------
 CA_REGION = os.getenv("CA_REGION", "ca-central-1")
-S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://minio:9000")
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "https://storage.legal.getbukd.com")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "legaltech-dev")
 S3_USE_PATH_STYLE = env_bool("S3_USE_PATH_STYLE", True)
+S3_EXTERNAL_ENDPOINT_URL = os.getenv("S3_EXTERNAL_ENDPOINT_URL", "")
 
 STORAGES = {
     "default": {
@@ -230,6 +234,7 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@maplelegal.ca")
 # --- Stripe / payments stubs ----------------------------------------------
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "sk_test_stub")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_stub")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
 INTERAC_INSTRUCTIONS = "Set up Interac e-Transfer with finance@maplelegal.ca"
 
 # --- Logging ---------------------------------------------------------------

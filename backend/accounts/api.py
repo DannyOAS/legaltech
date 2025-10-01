@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     APITokenViewSet,
     InvitationViewSet,
+    InvitationAcceptView,
     LoginView,
     LogoutView,
     MFASetupView,
@@ -28,4 +29,5 @@ auth_urlpatterns = [
     path("refresh/", RefreshView.as_view(), name="refresh"),
     path("mfa/setup/", MFASetupView.as_view(), name="mfa-setup"),
     path("mfa/verify/", MFAVerifyView.as_view(), name="mfa-verify"),
+    path("invite/accept/", InvitationAcceptView.as_view(), name="invite-accept"),
 ]

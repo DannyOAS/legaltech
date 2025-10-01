@@ -5,30 +5,46 @@ import boto3
 from botocore.config import Config
 from django.conf import settings
 
-_client_cache = None
+_internal_client = None
+_signing_client = None
 
 
 def _client():
-    global _client_cache
-    if _client_cache is None:
-        _client_cache = boto3.client(
+    global _internal_client
+    if _internal_client is None:
+        _internal_client = boto3.client(
             "s3",
             endpoint_url=settings.S3_ENDPOINT_URL,
             region_name=settings.CA_REGION,
             config=Config(s3={"addressing_style": "path" if settings.S3_USE_PATH_STYLE else "virtual"}),
         )
-    return _client_cache
+    return _internal_client
+
+
+def _signer():
+    global _signing_client
+    if _signing_client is None:
+        endpoint = getattr(settings, "S3_EXTERNAL_ENDPOINT_URL", "") or settings.S3_ENDPOINT_URL
+        _signing_client = boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            region_name=settings.CA_REGION,
+            config=Config(s3={"addressing_style": "path" if settings.S3_USE_PATH_STYLE else "virtual"}),
+        )
+    return _signing_client
 
 
 def generate_put_url(org_id: str, key: str, content_type: str = "application/octet-stream", content_length: int | None = None) -> dict:
     params = {"Bucket": settings.S3_BUCKET_NAME, "Key": key, "ContentType": content_type}
-    url = _client().generate_presigned_url("put_object", Params=params, ExpiresIn=300)
+    url = _signer().generate_presigned_url("put_object", Params=params, ExpiresIn=300)
     headers = {"Content-Type": content_type}
-    if content_length is not None:
-        headers["Content-Length"] = str(content_length)
     return {"url": url, "headers": headers}
 
 
 def generate_get_url(org_id: str, key: str) -> dict:
-    url = _client().generate_presigned_url("get_object", Params={"Bucket": settings.S3_BUCKET_NAME, "Key": key}, ExpiresIn=300)
+    url = _signer().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.S3_BUCKET_NAME, "Key": key},
+        ExpiresIn=300,
+    )
     return {"url": url}

@@ -25,6 +25,7 @@ class Client(TimeStampedModel):
     address = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     is_deleted = models.BooleanField(default=False)
+    portal_user = models.OneToOneField(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="client_profile")
 
     class Meta:
         ordering = ["display_name"]
@@ -54,3 +55,8 @@ class Matter(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.reference_code and self.organization_id:
+            self.reference_code = self.organization.generate_matter_reference()
+        super().save(*args, **kwargs)

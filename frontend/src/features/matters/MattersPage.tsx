@@ -38,6 +38,7 @@ interface PaginatedResponse<T> {
 }
 
 const fetcher = <T,>(url: string) => api.get<T>(url);
+const PAGE_SIZE = 10;
 
 interface FormState {
   client: string;
@@ -64,18 +65,31 @@ const sanitizeMatterPayload = (values: FormState) => ({
   title: values.title.trim(),
   practice_area: values.practice_area.trim(),
   status: values.status,
-  reference_code: values.reference_code.trim(),
+  reference_code: values.reference_code.trim() || undefined,
   opened_at: values.opened_at,
   closed_at: values.status === "closed" ? values.closed_at || null : null,
 });
 
 const MattersPage = () => {
   const toast = useToast();
-  const { data: mattersData, mutate, isLoading } = useSWR<PaginatedResponse<Matter>>("/matters/", fetcher);
-  const { data: clientsData } = useSWR<PaginatedResponse<ClientOption>>("/clients/", fetcher);
+  const [page, setPage] = useState(0);
+  const [searchValue, setSearchValue] = useState("");
+  const offset = page * PAGE_SIZE;
+  const mattersKey = useMemo(() => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+    if (searchValue.trim()) {
+      params.set("search", searchValue.trim());
+    }
+    return `/matters/?${params.toString()}`;
+  }, [offset, searchValue]);
+  const { data: mattersData, mutate, isLoading } = useSWR<PaginatedResponse<Matter>>(mattersKey, fetcher);
+  const { data: clientsData } = useSWR<PaginatedResponse<ClientOption>>("/clients/?limit=500", fetcher);
 
   const matters = mattersData?.results ?? [];
+  const totalMatters = mattersData?.count ?? 0;
   const clients = clientsData?.results ?? [];
+  const hasPrevious = page > 0;
+  const hasNext = offset + matters.length < totalMatters;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formValues, setFormValues] = useState<FormState>(defaultFormState);
@@ -125,6 +139,11 @@ const MattersPage = () => {
     }
   };
 
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchValue(event.target.value);
+    setPage(0);
+  };
+
   const handleSelectChange = (field: keyof FormState) => (event: ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value as FormState[keyof FormState];
     setFormValues((prev) => {
@@ -152,6 +171,7 @@ const MattersPage = () => {
         await api.patch(`/matters/${editingMatter!.id}/`, payload);
       } else {
         await api.post("/matters/", payload);
+        setPage(0);
       }
       await mutate();
       toast.success(`Matter ${isEdit ? "updated" : "created"}`, `${payload.title} saved successfully.`);
@@ -176,7 +196,13 @@ const MattersPage = () => {
     setIsDeleting(true);
     try {
       await api.delete(`/matters/${deleteTarget.id}/`);
-      await mutate();
+      const updated = await mutate();
+      const remaining = updated?.count ?? 0;
+      if (remaining === 0) {
+        setPage(0);
+      } else if (remaining <= offset && page > 0) {
+        setPage((prev) => Math.max(prev - 1, 0));
+      }
       toast.success("Matter removed", `${deleteTarget.title} has been deleted.`);
       setDeleteTarget(null);
     } catch (error) {
@@ -204,11 +230,20 @@ const MattersPage = () => {
 
   return (
     <div className="rounded-lg bg-white p-6 shadow">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold text-slate-700">Matters</h2>
-        <Button onClick={openCreateModal} disabled={clients.length === 0}>
-          New Matter
-        </Button>
+        <div className="flex flex-1 items-center gap-3 sm:justify-end">
+          <input
+            type="search"
+            value={searchValue}
+            onChange={handleSearchChange}
+            placeholder="Search matters..."
+            className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+          />
+          <Button onClick={openCreateModal} disabled={clients.length === 0}>
+            New Matter
+          </Button>
+        </div>
       </div>
       {clients.length === 0 ? (
         <p className="mb-4 text-sm text-amber-600">
@@ -269,6 +304,38 @@ const MattersPage = () => {
         </div>
       )}
 
+      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          {totalMatters === 0
+            ? "No results"
+            : matters.length === 0
+            ? `Showing 0 of ${totalMatters}`
+            : `Showing ${offset + 1}-${offset + matters.length} of ${totalMatters}`}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+            disabled={!hasPrevious}
+            className={`rounded border px-3 py-1 text-sm transition-colors ${
+              hasPrevious ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+            }`}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage((prev) => (hasNext ? prev + 1 : prev))}
+            disabled={!hasNext}
+            className={`rounded border px-3 py-1 text-sm transition-colors ${
+              hasNext ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+            }`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
       <Modal isOpen={isModalOpen} onClose={closeModal} title={modalTitle} footer={modalFooter}>
         <form id="matter-form" className="space-y-4" onSubmit={handleSubmit}>
           <SelectField
@@ -310,7 +377,7 @@ const MattersPage = () => {
               name="reference_code"
               value={formValues.reference_code}
               onChange={handleInputChange("reference_code")}
-              required
+              description="Leave blank to auto-generate"
               error={formErrors.reference_code}
             />
             <SelectField

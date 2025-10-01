@@ -24,12 +24,48 @@ class Document(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     client_visible = models.BooleanField(default=False)
     version = models.PositiveIntegerField(default=1)
+    scan_status = models.CharField(
+        max_length=16,
+        choices=[("pending", "Pending"), ("clean", "Clean"), ("infected", "Infected"), ("failed", "Failed")],
+        default="pending",
+    )
+    scan_message = models.CharField(max_length=255, blank=True)
+    scan_checked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-uploaded_at"]
 
     def __str__(self) -> str:
         return self.filename
+
+
+class DocumentVersion(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    document = models.ForeignKey(Document, related_name="versions", on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, related_name="document_versions", on_delete=models.CASCADE)
+    version_number = models.PositiveIntegerField()
+    filename = models.CharField(max_length=255)
+    mime = models.CharField(max_length=120)
+    size = models.BigIntegerField()
+    s3_key = models.CharField(max_length=512)
+    sha256 = models.CharField(max_length=64)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, related_name="document_versions", on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+
+class DocumentComment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    document = models.ForeignKey(Document, related_name="comments", on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, related_name="document_comments", on_delete=models.CASCADE)
+    author = models.ForeignKey(User, related_name="document_comments", on_delete=models.SET_NULL, null=True)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
 
 
 class MessageThread(models.Model):

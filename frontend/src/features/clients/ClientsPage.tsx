@@ -15,6 +15,7 @@ interface Client {
   phone: string;
   address: string;
   notes: string;
+  portal_user: string | null;
 }
 
 interface PaginatedResponse<T> {
@@ -23,6 +24,7 @@ interface PaginatedResponse<T> {
 }
 
 const fetcher = <T,>(url: string) => api.get<T>(url);
+const PAGE_SIZE = 10;
 
 const emptyForm: FormState = {
   display_name: "",
@@ -50,8 +52,23 @@ const sanitizePayload = (values: FormState) => ({
 
 const ClientsPage = () => {
   const toast = useToast();
-  const { data, mutate, isLoading } = useSWR<PaginatedResponse<Client>>("/clients/", fetcher);
+  const [page, setPage] = useState(0);
+  const [searchValue, setSearchValue] = useState("");
+  const offset = page * PAGE_SIZE;
+  const clientsKey = useMemo(() => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+    if (searchValue.trim()) {
+      params.set("search", searchValue.trim());
+    }
+    return `/clients/?${params.toString()}`;
+  }, [offset, searchValue]);
+  const { data, mutate, isLoading } = useSWR<PaginatedResponse<Client>>(clientsKey, fetcher);
+  const { data: roles } = useSWR<PaginatedResponse<{ id: string; name: string }>>("/roles/", fetcher);
   const clients = data?.results ?? [];
+  const totalClients = data?.count ?? 0;
+  const clientRoleId = roles?.results?.find((role) => role.name === "Client")?.id ?? null;
+  const hasPrevious = page > 0;
+  const hasNext = offset + clients.length < totalClients;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formValues, setFormValues] = useState<FormState>(emptyForm);
@@ -60,6 +77,7 @@ const ClientsPage = () => {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
 
   const resetForm = useCallback(() => {
     setFormValues(emptyForm);
@@ -97,6 +115,11 @@ const ClientsPage = () => {
     }
   };
 
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchValue(event.target.value);
+    setPage(0);
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -110,6 +133,7 @@ const ClientsPage = () => {
         await api.patch<Client>(`/clients/${editingClient!.id}/`, payload);
       } else {
         await api.post<Client>("/clients/", payload);
+        setPage(0);
       }
       await mutate();
       toast.success(`Client ${isEdit ? "updated" : "created"}`, `${payload.display_name} saved successfully.`);
@@ -144,6 +168,62 @@ const ClientsPage = () => {
     }
   };
 
+  const resolveApiErrorMessage = (error: ApiError) => {
+    if (error.payload.detail) {
+      return error.payload.detail;
+    }
+    const fieldErrors = error.payload.errors;
+    if (fieldErrors) {
+      for (const key of Object.keys(fieldErrors)) {
+        const messages = fieldErrors[key];
+        if (messages?.length) {
+          return messages.join(" ");
+        }
+      }
+    }
+    // DRF serializer errors arrive as field: [messages]
+    if (typeof error.payload === "object" && error.payload) {
+      for (const [key, value] of Object.entries(error.payload)) {
+        if (key === "detail" || key === "errors") continue;
+        if (Array.isArray(value) && value.length > 0) {
+          return value.join(" ");
+        }
+        if (typeof value === "string" && value.trim()) {
+          return value;
+        }
+      }
+    }
+    return "";
+  };
+
+  const inviteClient = async (client: Client) => {
+    if (!clientRoleId) {
+      toast.error("Unable to send invite", "Client role not configured");
+      return;
+    }
+    if (!client.primary_email?.trim()) {
+      toast.error("Unable to send invite", "Client is missing a primary email address.");
+      return;
+    }
+    setIsInviting(true);
+    try {
+      await api.post("/invitations/", {
+        email: client.primary_email,
+        role: clientRoleId,
+        client: client.id,
+      });
+      toast.success("Invitation sent", `${client.display_name} will receive an email shortly.`);
+    } catch (error) {
+      let message = "Please try again later.";
+      if (error instanceof ApiError) {
+        message = resolveApiErrorMessage(error) || `Request failed (${error.status})`;
+      }
+      toast.error("Unable to send invite", message);
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
   const modalTitle = editingClient ? `Edit ${editingClient.display_name}` : "New Client";
 
   const modalFooter = useMemo(
@@ -162,9 +242,18 @@ const ClientsPage = () => {
 
   return (
     <div className="rounded-lg bg-white p-6 shadow">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold text-slate-700">Clients</h2>
-        <Button onClick={openCreateModal}>New Client</Button>
+        <div className="flex flex-1 items-center gap-3 sm:justify-end">
+          <input
+            type="search"
+            value={searchValue}
+            onChange={handleSearchChange}
+            placeholder="Search clients..."
+            className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+          />
+          <Button onClick={openCreateModal}>New Client</Button>
+        </div>
       </div>
       {isLoading ? (
         <div className="flex justify-center py-10">
@@ -196,6 +285,20 @@ const ClientsPage = () => {
                       <Button variant="secondary" size="sm" onClick={() => openEditModal(client)}>
                         Edit
                       </Button>
+                      {client.portal_user ? (
+                        <Button variant="secondary" size="sm" disabled>
+                          Portal User
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => inviteClient(client)}
+                          disabled={isInviting || !clientRoleId}
+                        >
+                          Invite
+                        </Button>
+                      )}
                       <Button variant="danger" size="sm" onClick={() => setDeleteTarget(client)}>
                         Delete
                       </Button>
@@ -207,6 +310,38 @@ const ClientsPage = () => {
           </table>
         </div>
       )}
+
+      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          {totalClients === 0
+            ? "No results"
+            : clients.length === 0
+            ? `Showing 0 of ${totalClients}`
+            : `Showing ${offset + 1}-${offset + clients.length} of ${totalClients}`}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+            disabled={!hasPrevious}
+            className={`rounded border px-3 py-1 text-sm transition-colors ${
+              hasPrevious ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+            }`}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage((prev) => (hasNext ? prev + 1 : prev))}
+            disabled={!hasNext}
+            className={`rounded border px-3 py-1 text-sm transition-colors ${
+              hasNext ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
+            }`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
 
       <Modal isOpen={isModalOpen} onClose={closeModal} title={modalTitle} footer={modalFooter}>
         <form id="client-form" className="space-y-4" onSubmit={handleSubmit}>

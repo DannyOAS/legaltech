@@ -3,10 +3,15 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from config.tenancy import OrganizationScopedPrimaryKeyRelatedField
+from matters.models import Matter
+
 from .models import Expense, Invoice, Payment, TimeEntry
 
 
 class TimeEntrySerializer(serializers.ModelSerializer):
+    matter = OrganizationScopedPrimaryKeyRelatedField(queryset=Matter.objects.all())
+
     class Meta:
         model = TimeEntry
         fields = [
@@ -26,6 +31,8 @@ class TimeEntrySerializer(serializers.ModelSerializer):
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    matter = OrganizationScopedPrimaryKeyRelatedField(queryset=Matter.objects.all())
+
     class Meta:
         model = Expense
         fields = [
@@ -43,6 +50,8 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
+    matter = OrganizationScopedPrimaryKeyRelatedField(queryset=Matter.objects.all())
+
     class Meta:
         model = Invoice
         fields = [
@@ -63,6 +72,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
+    invoice = OrganizationScopedPrimaryKeyRelatedField(queryset=Invoice.objects.all())
+
     class Meta:
         model = Payment
         fields = [

@@ -4,6 +4,20 @@ from __future__ import annotations
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
+def _role_names(user) -> set[str]:
+    names = getattr(user, "_cached_role_names", None)
+    if names is None:
+        names = set(user.roles.values_list("name", flat=True)) if user and user.is_authenticated else set()
+        setattr(user, "_cached_role_names", names)
+    return names
+
+
+def is_client_user(user) -> bool:
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    return "Client" in _role_names(user)
+
+
 class IsOrganizationMember(BasePermission):
     message = "User must belong to an organization."
 
@@ -23,4 +37,11 @@ class IsOrgAdminOrReadOnly(BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        return bool(set(user.roles.values_list("name", flat=True)) & self.elevated_roles)  # type: ignore[attr-defined]
+        return bool(_role_names(user) & self.elevated_roles)
+
+
+class IsNotClient(BasePermission):
+    message = "Client portal users cannot access this resource."
+
+    def has_permission(self, request, view) -> bool:
+        return not is_client_user(request.user)

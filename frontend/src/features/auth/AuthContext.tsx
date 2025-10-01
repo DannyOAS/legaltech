@@ -14,8 +14,9 @@ export interface User {
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, otp?: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -25,18 +26,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    api
-      .get<User>("/users/me/")
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+  const refreshUser = useCallback(async () => {
+    try {
+      const me = await api.get<User>("/users/me/");
+      setUser(me);
+    } catch (error) {
+      setUser(null);
+      throw error;
+    }
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  useEffect(() => {
+    refreshUser().catch(() => undefined).finally(() => setLoading(false));
+  }, [refreshUser]);
+
+  const login = useCallback(async (email: string, password: string, otp?: string) => {
     setLoading(true);
     try {
-      const data = await api.post<User>("/auth/login/", { email, password });
+      const payload: Record<string, string> = { email, password };
+      if (otp) {
+        payload.otp = otp;
+      }
+      const data = await api.post<User>("/auth/login/", payload);
       setUser(data);
       navigate("/dashboard");
     } catch (error) {
@@ -55,7 +66,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     navigate("/login");
   }, [navigate]);
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout]);
+  const value = useMemo(
+    () => ({ user, loading, login, logout, refreshUser }),
+    [user, loading, login, logout, refreshUser],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

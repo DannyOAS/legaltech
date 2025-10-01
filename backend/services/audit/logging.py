@@ -17,7 +17,9 @@ def audit_action(organization_id: str | None, actor_id: str | None, action: str,
         return
     metadata = metadata or {}
     ip = getattr(request, "META", {}).get("REMOTE_ADDR") if request else None
-    user_agent = getattr(request, "META", {}).get("HTTP_USER_AGENT") if request else ""
+    user_agent = ""
+    if request:
+        user_agent = getattr(request, "META", {}).get("HTTP_USER_AGENT", "") or ""
     try:
         AuditEvent = apps.get_model("audit", "AuditEvent")
     except Exception:  # apps not ready yet or model unavailable

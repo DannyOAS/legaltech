@@ -3,12 +3,18 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as SimpleJWTTokenObtainPair
 
+from config.tenancy import OrganizationScopedPrimaryKeyRelatedField
+from matters.models import Client
+from services.notifications.email import send_invitation_email
+
+from .mfa import verify_totp
 from .models import APIToken, Invitation, Organization, Role, User, UserRole
 
 
@@ -39,30 +45,68 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "is_staff",
             "mfa_enabled",
+            "mfa_required",
+            "last_login_at",
             "created_at",
             "organization",
             "roles",
         ]
-        read_only_fields = ["id", "is_staff", "created_at", "organization", "roles"]
+        read_only_fields = ["id", "is_staff", "created_at", "organization", "roles", "last_login_at", "mfa_required"]
 
     def get_roles(self, obj: User) -> list[str]:
         return list(obj.roles.values_list("name", flat=True))
 
 
 class InvitationSerializer(serializers.ModelSerializer):
+    role = OrganizationScopedPrimaryKeyRelatedField(queryset=Role.objects.all())
+    client = OrganizationScopedPrimaryKeyRelatedField(queryset=Client.objects.all(), required=False, allow_null=True)
+
     class Meta:
         model = Invitation
-        fields = ["id", "email", "role", "token", "expires_at", "organization", "created_at"]
-        read_only_fields = ["id", "token", "organization", "created_at"]
+        fields = [
+            "id",
+            "email",
+            "role",
+            "client",
+            "token",
+            "expires_at",
+            "status",
+            "accepted_at",
+            "organization",
+            "created_at",
+            "metadata",
+        ]
+        read_only_fields = ["id", "token", "expires_at", "organization", "created_at", "status", "accepted_at"]
+
+    def validate(self, attrs):
+        client = attrs.get("client")
+        role: Role = attrs.get("role")
+        if client and role and role.name != "Client":
+            raise serializers.ValidationError({"client": "Client invitations must use the Client role."})
+        return attrs
 
     def create(self, validated_data):
+        request = self.context["request"]
         role = validated_data["role"]
-        organization = self.context["request"].user.organization
+        organization = request.user.organization
+        ttl_hours = int(self.context.get("ttl_hours", 72))
         invitation = Invitation.issue(
             email=validated_data["email"],
             role=role,
             organization=organization,
-            ttl_hours=int(self.context.get("ttl_hours", 72)),
+            invited_by=request.user,
+            client=validated_data.get("client"),
+            ttl_hours=ttl_hours,
+            metadata=validated_data.get("metadata"),
+        )
+        base_url = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
+        invite_link = f"{base_url.rstrip('/')}/invite/accept?token={invitation.token}"
+        send_invitation_email(
+            to=invitation.email,
+            organization_name=organization.name,
+            role_name=role.name,
+            invite_link=invite_link,
+            expires_at=invitation.expires_at,
         )
         return invitation
 
@@ -96,6 +140,7 @@ class TokenObtainPairSerializer(SimpleJWTTokenObtainPair):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
+    otp = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
         email = attrs.get("email")
@@ -105,6 +150,14 @@ class LoginSerializer(serializers.Serializer):
             raise AuthenticationFailed("Invalid credentials")
         if not user.is_active:
             raise AuthenticationFailed("User inactive")
+        if user.mfa_enabled:
+            otp = attrs.get("otp")
+            if not otp:
+                raise AuthenticationFailed("MFA required", code="mfa_required")
+            if not user.mfa_secret:
+                raise AuthenticationFailed("MFA not initialized", code="mfa_invalid")
+            if not verify_totp(user.mfa_secret, otp, window=1):
+                raise AuthenticationFailed("Invalid MFA token", code="mfa_invalid")
         attrs["user"] = user
         return attrs
 
@@ -114,8 +167,6 @@ class RefreshSerializer(serializers.Serializer):
 
 
 class MFASetupSerializer(serializers.Serializer):
-    """Stub for MFA setup - provides secret and QR uri."""
-
     secret = serializers.CharField(read_only=True)
     qr_uri = serializers.CharField(read_only=True)
 
@@ -124,14 +175,17 @@ class MFAVerifySerializer(serializers.Serializer):
     token = serializers.CharField()
 
     def validate(self, attrs):
-        # This will be implemented with real TOTP verification later.
         token = attrs["token"]
-        if token != "000000":
-            raise serializers.ValidationError("Invalid MFA token stub")
+        user = self.context["request"].user
+        if not user.mfa_secret:
+            raise serializers.ValidationError("MFA secret not initialized")
+
+        if not verify_totp(user.mfa_secret, token, window=1):
+            raise serializers.ValidationError("Invalid MFA token")
         return attrs
 
 
-class PasswordlessInviteSerializer(serializers.Serializer):
+class InvitationAcceptSerializer(serializers.Serializer):
     token = serializers.CharField()
     first_name = serializers.CharField()
     last_name = serializers.CharField()
@@ -139,23 +193,36 @@ class PasswordlessInviteSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         try:
-            invite = Invitation.objects.get(token=attrs["token"])
+            invitation = Invitation.objects.select_related("organization", "role", "client").get(token=attrs["token"])
         except Invitation.DoesNotExist as exc:
-            raise serializers.ValidationError("Invite not found") from exc
-        if not invite.is_valid():
-            raise serializers.ValidationError("Invite expired")
-        attrs["invitation"] = invite
+            raise serializers.ValidationError({"token": "Invitation not found"}) from exc
+        if not invitation.is_valid():
+            raise serializers.ValidationError({"token": "Invitation expired"})
+        attrs["invitation"] = invitation
         return attrs
 
     def create(self, validated_data):
-        invite: Invitation = validated_data["invitation"]
+        invitation: Invitation = validated_data["invitation"]
         user = User.objects.create_user(
-            email=invite.email,
+            email=invitation.email,
             password=validated_data["password"],
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
-            organization=invite.organization,
+            organization=invitation.organization,
         )
-        UserRole.objects.create(user=user, role=invite.role)
-        invite.delete()
+        UserRole.objects.create(user=user, role=invitation.role)
+        if invitation.role.name == "Client":
+            client = invitation.client
+            if client is None:
+                client = Client.objects.create(
+                    organization=invitation.organization,
+                    display_name=f"{validated_data['first_name']} {validated_data['last_name']}",
+                    primary_email=invitation.email,
+                )
+            if not client.portal_user:
+                client.portal_user = user
+                client.save(update_fields=["portal_user"])
+            invitation.client = client
+            invitation.save(update_fields=["client"])
+        invitation.mark_accepted()
         return user

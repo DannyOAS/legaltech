@@ -2,8 +2,8 @@
 
 ## Controls Checklist
 
-- **Authentication** – httpOnly JWT cookies with CSRF double-submit token, MFA hooks ready for TOTP, optional OIDC stubs
-- **Authorization** – RBAC via `Role` + `UserRole`, per-org row-level scoping, API throttles, staff-only admin
+- **Authentication** – httpOnly JWT cookies with CSRF double-submit token, enforced TOTP MFA flow, optional OIDC stubs
+- **Authorization** – RBAC via `Role` + `UserRole`, per-org row-level scoping, API throttles, staff-only admin. `Client` role tokens are restricted to the read-only client portal surface.
 - **Transport** – TLS termination assumed at load balancer, HSTS, CSP, secure cookies, proxy SSL header
 - **Data at Rest** – Postgres row-level tenancy (`organization_id`), MinIO/S3 per-tenant prefixes, server-side encryption w/ KMS alias (`CA_REGION`)
 - **Auditability** – `AuditEvent` persisted for CRUD + downloads, contextual logging, CI-enforced code quality
@@ -23,7 +23,7 @@
 
 - Documents stream directly to S3 via presigned URLs
 - Metadata captured before upload (hash, mime, size)
-- Hook location documented in `services/storage` to integrate ClamAV or commercial AV
+- Uploads are queued through `services.storage.virus_scan.schedule_scan` so an AV engine can process before client access
 
 ## Logging & Monitoring
 

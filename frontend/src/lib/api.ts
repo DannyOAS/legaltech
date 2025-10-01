@@ -66,7 +66,7 @@ async function refreshAuth(): Promise<void> {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? "GET";
   const headers: HeadersInit = { "Content-Type": "application/json", ...(options.headers || {}) };
-  if (method !== "GET" && method !== "HEAD") {
+  if (method !== "GET" && method !== "HEAD" && !path.startsWith("/auth/login")) {
     const csrf = getCsrfToken();
     if (csrf) {
       headers["X-CSRFToken"] = csrf;
