@@ -24,6 +24,7 @@ const AppLayout = () => {
         { to: "/dashboard", label: "Dashboard" },
         { to: "/clients", label: "Clients" },
         { to: "/matters", label: "Matters" },
+        { to: "/deadlines", label: "Deadlines" },
         { to: "/billing", label: "Billing" },
         { to: "/portal", label: "Portal" },
         { to: "/settings", label: "Org Settings" },

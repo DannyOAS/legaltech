@@ -6,7 +6,7 @@ from rest_framework import serializers
 from accounts.models import User
 from config.tenancy import OrganizationScopedPrimaryKeyRelatedField
 
-from .models import Client, Matter
+from .models import Client, Matter, CaseDeadline
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -56,3 +56,49 @@ class MatterSerializer(serializers.ModelSerializer):
 
     def validate_reference_code(self, value: str) -> str:
         return value.strip()
+
+
+class CaseDeadlineSerializer(serializers.ModelSerializer):
+    matter = MatterSerializer(read_only=True)
+    matter_id = OrganizationScopedPrimaryKeyRelatedField(queryset=Matter.objects.all(), source="matter", write_only=True)
+    created_by = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = CaseDeadline
+        fields = [
+            "id",
+            "title",
+            "description",
+            "deadline_type",
+            "due_date",
+            "rule_reference",
+            "priority",
+            "status",
+            "matter",
+            "matter_id",
+            "created_by",
+            "notifications_sent",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at", "matter", "created_by", "notifications_sent"]
+
+
+class CaseDeadlineListSerializer(serializers.ModelSerializer):
+    matter_title = serializers.CharField(source="matter.title", read_only=True)
+    matter_reference = serializers.CharField(source="matter.reference_code", read_only=True)
+
+    class Meta:
+        model = CaseDeadline
+        fields = [
+            "id",
+            "title",
+            "deadline_type",
+            "due_date",
+            "priority",
+            "status",
+            "matter_id",
+            "matter_title",
+            "matter_reference",
+            "created_at",
+        ]

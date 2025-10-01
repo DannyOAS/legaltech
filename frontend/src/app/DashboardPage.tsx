@@ -28,6 +28,19 @@ type ClientDashboard = {
   }>;
 };
 
+type DeadlinesSummary = {
+  upcoming: Array<{
+    id: string;
+    title: string;
+    deadline_type: string;
+    due_date: string;
+    priority: string;
+    matter_title: string;
+    matter_reference: string;
+  }>;
+  overdue_count: number;
+};
+
 const fetcher = <T,>(url: string) => api.get<T>(url);
 
 const DashboardPage = () => {
@@ -44,6 +57,10 @@ const DashboardPage = () => {
   const { data: audit } = useSWR<AuditEvent[] | { results: AuditEvent[] }>(isClient ? null : "/audit-events/", fetcher);
   const { data: clientSummary } = useSWR<ClientDashboard>(
     isClient ? "/client/dashboard/" : null,
+    fetcher,
+  );
+  const { data: deadlinesSummary } = useSWR<DeadlinesSummary>(
+    isClient ? null : "/deadlines/summary/",
     fetcher,
   );
   const rawEvents = Array.isArray(audit) ? audit : audit?.results ?? [];
@@ -85,9 +102,9 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-3">
+    <div className="grid gap-6 lg:grid-cols-3">
       {!isClient && user && !user.mfa_enabled ? (
-        <section className="md:col-span-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+        <section className="lg:col-span-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold">Secure your account</h2>
@@ -97,6 +114,55 @@ const DashboardPage = () => {
           </div>
         </section>
       ) : null}
+      
+      {deadlinesSummary && deadlinesSummary.overdue_count > 0 && (
+        <section className="lg:col-span-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Overdue Deadlines</h2>
+              <p className="text-xs text-red-600">
+                You have {deadlinesSummary.overdue_count} overdue deadline{deadlinesSummary.overdue_count !== 1 ? 's' : ''} that require immediate attention.
+              </p>
+            </div>
+            <Button variant="danger" onClick={() => window.location.href = '/deadlines'}>
+              View Deadlines
+            </Button>
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-lg bg-white p-6 shadow">
+        <h2 className="text-lg font-semibold text-slate-700">Upcoming Deadlines</h2>
+        <ul className="mt-4 space-y-3 text-sm">
+          {deadlinesSummary?.upcoming && deadlinesSummary.upcoming.length > 0 ? (
+            deadlinesSummary.upcoming.map((deadline) => (
+              <li key={deadline.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
+                <div>
+                  <p className="font-medium text-slate-700">{deadline.title}</p>
+                  <p className="text-xs text-slate-500">{deadline.matter_reference} • {deadline.matter_title}</p>
+                </div>
+                <div className="text-right">
+                  <div className={`text-sm font-semibold ${
+                    new Date(deadline.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) 
+                      ? 'text-red-600' : 'text-primary-600'
+                  }`}>
+                    {new Date(deadline.due_date).toLocaleDateString()}
+                  </div>
+                  <div className={`text-xs ${
+                    deadline.priority === 'high' || deadline.priority === 'critical' 
+                      ? 'text-red-500' : 'text-slate-500'
+                  }`}>
+                    {deadline.priority}
+                  </div>
+                </div>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No upcoming deadlines</li>
+          )}
+        </ul>
+      </section>
+
       <section className="rounded-lg bg-white p-6 shadow">
         <h2 className="text-lg font-semibold text-slate-700">Billing Snapshot</h2>
         <dl className="mt-4 space-y-2 text-sm text-slate-600">
@@ -114,7 +180,8 @@ const DashboardPage = () => {
           </div>
         </dl>
       </section>
-      <section className="rounded-lg bg-white p-6 shadow md:col-span-2">
+
+      <section className="rounded-lg bg-white p-6 shadow">
         <h2 className="text-lg font-semibold text-slate-700">Recent Activity</h2>
         <ul className="mt-4 space-y-3 text-sm">
           {events.length > 0 ? (

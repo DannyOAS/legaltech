@@ -18,6 +18,8 @@ import ClientDocumentsPage from "../features/client/ClientDocumentsPage";
 import ClientInvoicesPage from "../features/client/ClientInvoicesPage";
 import ClientMattersPage from "../features/client/ClientMattersPage";
 import ClientMatterDetailPage from "../features/client/ClientMatterDetailPage";
+import DeadlinesListPage from "../features/deadlines/DeadlinesListPage";
+import DeadlinesCalendarPage from "../features/deadlines/DeadlinesCalendarPage";
 
 const App = () => (
   <AuthProvider>
@@ -36,6 +38,8 @@ const App = () => (
           <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
           <Route path="/portal" element={<PortalPage />} />
           <Route path="/portal/:matterId" element={<MatterPortalPage />} />
+          <Route path="/deadlines" element={<DeadlinesListPage />} />
+          <Route path="/deadlines/calendar" element={<DeadlinesCalendarPage />} />
           <Route path="/settings" element={<OrgSettingsPage />} />
           <Route path="/client/documents" element={<ClientDocumentsPage />} />
           <Route path="/client/matters" element={<ClientMattersPage />} />
