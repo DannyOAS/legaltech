@@ -98,6 +98,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     organization = models.ForeignKey(Organization, related_name="users", on_delete=models.CASCADE)
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=32, blank=True, null=True)
+    mfa_pending_secret = models.CharField(max_length=32, blank=True, null=True)
     mfa_required = models.BooleanField(default=True)  # Ontario legal security requirement
     mfa_enforced_at = models.DateTimeField(null=True, blank=True)
     last_login_at = models.DateTimeField(null=True, blank=True)

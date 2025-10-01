@@ -177,11 +177,22 @@ class MFAVerifySerializer(serializers.Serializer):
     def validate(self, attrs):
         token = attrs["token"]
         user = self.context["request"].user
-        if not user.mfa_secret:
+        pending_secret = user.mfa_pending_secret
+        active_secret = user.mfa_secret
+
+        if pending_secret:
+            if not verify_totp(pending_secret, token, window=1):
+                raise serializers.ValidationError("Invalid MFA token")
+            attrs["using_pending_secret"] = True
+            return attrs
+
+        if not active_secret:
             raise serializers.ValidationError("MFA secret not initialized")
 
-        if not verify_totp(user.mfa_secret, token, window=1):
+        if not verify_totp(active_secret, token, window=1):
             raise serializers.ValidationError("Invalid MFA token")
+
+        attrs["using_pending_secret"] = False
         return attrs
 
 

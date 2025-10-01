@@ -118,72 +118,121 @@ const OrgSettingsPage = () => {
             <h2 className="text-lg font-semibold text-slate-700">Team & Client Access</h2>
             <p className="text-sm text-slate-500">Send invitations to staff or clients. Invitations expire after 72 hours.</p>
           </div>
-          <Button onClick={() => setInviteOpen(true)}>Invite User</Button>
+          <Button className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}>Invite User</Button>
         </div>
-        <div className="mt-6 overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Email</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Role</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Expires</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Last Sent</th>
-                <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isInvitesLoading ? (
+        <div className="mt-6">
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
                 <tr>
-                  <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
-                    Loading invitations...
-                  </td>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Email</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Role</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Expires</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Last Sent</th>
+                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
                 </tr>
-              ) : invites.length === 0 ? (
-                <tr>
-                  <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
-                    No pending invitations.
-                  </td>
-                </tr>
-              ) : (
-                invites.map((invitation) => {
-                  const roleName = roleNameById.get(invitation.role) ?? "—";
-                  const expires = new Date(invitation.expires_at).toLocaleString();
-                  const lastSent = invitation.last_sent_at ? new Date(invitation.last_sent_at).toLocaleString() : "—";
-                  const isCompleted = invitation.status !== "pending";
-                  return (
-                    <tr key={invitation.id}>
-                      <td className="px-3 py-2 text-slate-700">{invitation.email}</td>
-                      <td className="px-3 py-2 text-slate-600">{roleName}</td>
-                      <td className="px-3 py-2 capitalize text-slate-600">{invitation.status}</td>
-                      <td className="px-3 py-2 text-slate-500">{expires}</td>
-                      <td className="px-3 py-2 text-slate-500">{lastSent}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleResend(invitation)}
-                            disabled={isCompleted || resendingId === invitation.id}
-                          >
-                            {resendingId === invitation.id ? "Resending…" : "Resend"}
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleRevoke(invitation)}
-                            disabled={revokingId === invitation.id}
-                          >
-                            {revokingId === invitation.id ? "Revoking…" : "Revoke"}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {isInvitesLoading ? (
+                  <tr>
+                    <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
+                      Loading invitations...
+                    </td>
+                  </tr>
+                ) : invites.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
+                      No pending invitations.
+                    </td>
+                  </tr>
+                ) : (
+                  invites.map((invitation) => {
+                    const roleName = roleNameById.get(invitation.role) ?? "—";
+                    const expires = new Date(invitation.expires_at).toLocaleString();
+                    const lastSent = invitation.last_sent_at ? new Date(invitation.last_sent_at).toLocaleString() : "—";
+                    const isCompleted = invitation.status !== "pending";
+                    return (
+                      <tr key={invitation.id}>
+                        <td className="px-3 py-2 text-slate-700">{invitation.email}</td>
+                        <td className="px-3 py-2 text-slate-600">{roleName}</td>
+                        <td className="px-3 py-2 capitalize text-slate-600">{invitation.status}</td>
+                        <td className="px-3 py-2 text-slate-500">{expires}</td>
+                        <td className="px-3 py-2 text-slate-500">{lastSent}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleResend(invitation)}
+                              disabled={isCompleted || resendingId === invitation.id}
+                            >
+                              {resendingId === invitation.id ? "Resending…" : "Resend"}
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleRevoke(invitation)}
+                              disabled={revokingId === invitation.id}
+                            >
+                              {revokingId === invitation.id ? "Revoking…" : "Revoke"}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-3 text-sm md:hidden">
+            {isInvitesLoading ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-500">Loading invitations...</div>
+            ) : invites.length === 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-500">No pending invitations.</div>
+            ) : (
+              invites.map((invitation) => {
+                const roleName = roleNameById.get(invitation.role) ?? "—";
+                const expires = new Date(invitation.expires_at).toLocaleString();
+                const lastSent = invitation.last_sent_at ? new Date(invitation.last_sent_at).toLocaleString() : "—";
+                const isCompleted = invitation.status !== "pending";
+                return (
+                  <div key={invitation.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-slate-900">{invitation.email}</span>
+                      <span className="text-xs uppercase tracking-wide text-slate-500">{roleName}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                      <span className="rounded bg-slate-100 px-2 py-1 capitalize text-slate-700">Status: {invitation.status}</span>
+                      <span className="rounded bg-slate-100 px-2 py-1">Expires {expires}</span>
+                      <span className="rounded bg-slate-100 px-2 py-1">Last sent {lastSent}</span>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full sm:flex-1"
+                        onClick={() => handleResend(invitation)}
+                        disabled={isCompleted || resendingId === invitation.id}
+                      >
+                        {resendingId === invitation.id ? "Resending…" : "Resend"}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="w-full sm:flex-1"
+                        onClick={() => handleRevoke(invitation)}
+                        disabled={revokingId === invitation.id}
+                      >
+                        {revokingId === invitation.id ? "Revoking…" : "Revoke"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </section>
       <section className="rounded bg-white p-6 shadow">

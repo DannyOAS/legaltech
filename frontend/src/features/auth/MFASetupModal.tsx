@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Modal from "../../components/ui/Modal";
 import Button from "../../components/ui/Button";
 import TextField from "../../components/ui/TextField";
 import { api, ApiError } from "../../lib/api";
+import QRCode from "qrcode";
 
 interface MFASetupModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const MFASetupModal = ({ isOpen, onClose, onEnabled }: MFASetupModalProps) => {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -47,6 +49,21 @@ const MFASetupModal = ({ isOpen, onClose, onEnabled }: MFASetupModalProps) => {
     };
     fetchSecret();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (secret && qrCodeRef.current) {
+      QRCode.toCanvas(qrCodeRef.current, secret.qr_uri, {
+        width: 160,
+        margin: 1,
+        color: {
+          dark: "#000000",
+          light: "#ffffff",
+        },
+      }).catch((err) => {
+        console.error("QR Code generation failed:", err);
+      });
+    }
+  }, [secret]);
 
   const handleVerify = async (event: FormEvent) => {
     event.preventDefault();
@@ -90,10 +107,9 @@ const MFASetupModal = ({ isOpen, onClose, onEnabled }: MFASetupModalProps) => {
             <p className="font-medium text-slate-700">Step 1</p>
             <p className="mt-1 text-xs text-slate-500">Scan this QR code or enter the secret manually.</p>
             <div className="mt-3 flex items-center gap-4">
-              <img
-                src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(secret.qr_uri)}`}
-                alt="MFA QR code"
-                className="h-40 w-40 rounded border border-slate-200"
+              <canvas
+                ref={qrCodeRef}
+                className="h-40 w-40 rounded border border-slate-200 bg-white"
               />
               <div>
                 <p className="text-xs uppercase text-slate-500">Secret</p>

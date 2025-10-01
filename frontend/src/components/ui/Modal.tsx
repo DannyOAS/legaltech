@@ -42,15 +42,15 @@ const Modal = ({ isOpen, title, onClose, children, footer, size = "md", loading 
   }
 
   const content = (
-    <div className="fixed inset-0 z-40 flex items-center justify-center px-4 py-6">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} aria-hidden="true" />
       <div
-        className={`relative z-50 w-full rounded-lg bg-white shadow-xl ${sizeMap[size]}`}
+        className={`relative z-50 w-full rounded-lg bg-white shadow-xl ${sizeMap[size]} max-h-[90vh] flex flex-col`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
           <h2 id="modal-title" className="text-lg font-semibold text-slate-800">
             {title}
           </h2>
@@ -58,7 +58,7 @@ const Modal = ({ isOpen, title, onClose, children, footer, size = "md", loading 
             ×
           </Button>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
           {loading ? (
             <div className="flex justify-center py-10">
               <Spinner size="lg" />
@@ -67,7 +67,7 @@ const Modal = ({ isOpen, title, onClose, children, footer, size = "md", loading 
             children
           )}
         </div>
-        {footer ? <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">{footer}</div> : null}
+        {footer ? <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end sm:px-6 sm:py-4">{footer}</div> : null}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import TextAreaField from "../../components/ui/TextAreaField";
 import TextField from "../../components/ui/TextField";
 import { useToast } from "../../components/ui/ToastProvider";
 import { api, ApiError } from "../../lib/api";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 interface BillingSummary {
   total_hours: string;
@@ -562,17 +563,17 @@ const BillingPage = () => {
       </section>
 
       <section className="rounded-lg bg-white p-6 shadow">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-semibold text-slate-700">Time Entries</h3>
-          <div className="flex flex-1 items-center gap-3 sm:justify-end">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
             <input
               type="search"
               value={timeSearch}
               onChange={handleTimeSearchChange}
               placeholder="Search time entries..."
-              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+              className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none md:max-w-xs"
             />
-            <Button onClick={() => openTimeModal()} disabled={matters.length === 0}>
+            <Button className="w-full md:w-auto" onClick={() => openTimeModal()} disabled={matters.length === 0}>
               Log Time
             </Button>
           </div>
@@ -587,42 +588,93 @@ const BillingPage = () => {
         ) : timeEntries.length === 0 ? (
           <p className="text-sm text-slate-500">No time entries captured yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Description</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Hours</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Rate</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Date</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Source</th>
-                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {timeEntries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="px-3 py-2">{renderMatterName(entry.matter)}</td>
-                    <td className="px-3 py-2 text-slate-600">{entry.description}</td>
-                    <td className="px-3 py-2">{(entry.minutes / 60).toFixed(2)}</td>
-                    <td className="px-3 py-2">${Number(entry.rate).toFixed(2)}</td>
-                    <td className="px-3 py-2">{new Date(entry.date).toLocaleDateString()}</td>
-                    <td className="px-3 py-2 capitalize">{entry.source}</td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => openTimeModal(entry)}>
-                          Edit
-                        </Button>
-                        <Button variant="danger" size="sm" onClick={() => setDeleteTimeTarget(entry)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
+          <div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Description</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Hours</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Rate</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Date</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Source</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {timeEntries.map((entry) => (
+                    <tr key={entry.id}>
+                      <td className="px-3 py-2">{renderMatterName(entry.matter)}</td>
+                      <td className="px-3 py-2 text-slate-600">{entry.description}</td>
+                      <td className="px-3 py-2">{(entry.minutes / 60).toFixed(2)}</td>
+                      <td className="px-3 py-2">${Number(entry.rate).toFixed(2)}</td>
+                      <td className="px-3 py-2">{new Date(entry.date).toLocaleDateString()}</td>
+                      <td className="px-3 py-2 capitalize">{entry.source}</td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openTimeModal(entry)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                            aria-label="Edit time entry"
+                          >
+                            <PencilSquareIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTimeTarget(entry)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                            aria-label="Delete time entry"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 md:hidden">
+              {timeEntries.map((entry) => (
+                <div key={entry.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-col gap-2 text-sm text-slate-600">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-slate-900">{renderMatterName(entry.matter)}</span>
+                      <span className="text-xs uppercase text-slate-500">{new Date(entry.date).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-slate-700">{entry.description}</p>
+                    <div className="flex flex-wrap gap-4 text-xs">
+                      <span className="rounded bg-white px-2 py-1 font-medium text-primary-700">
+                        {(entry.minutes / 60).toFixed(2)} hrs
+                      </span>
+                      <span className="rounded bg-white px-2 py-1 text-slate-700">@ ${Number(entry.rate).toFixed(2)}</span>
+                      <span className="rounded bg-white px-2 py-1 capitalize text-slate-700">{entry.source}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openTimeModal(entry)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                      aria-label="Edit time entry"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTimeTarget(entry)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                      aria-label="Delete time entry"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
@@ -659,17 +711,17 @@ const BillingPage = () => {
       </section>
 
       <section className="rounded-lg bg-white p-6 shadow">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-semibold text-slate-700">Expenses</h3>
-          <div className="flex flex-1 items-center gap-3 sm:justify-end">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
             <input
               type="search"
               value={expenseSearch}
               onChange={handleExpenseSearchChange}
               placeholder="Search expenses..."
-              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+              className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none md:max-w-xs"
             />
-            <Button onClick={() => openExpenseModal()} disabled={matters.length === 0}>
+            <Button className="w-full md:w-auto" onClick={() => openExpenseModal()} disabled={matters.length === 0}>
               Record Expense
             </Button>
           </div>
@@ -681,42 +733,91 @@ const BillingPage = () => {
         ) : expenses.length === 0 ? (
           <p className="text-sm text-slate-500">No expenses recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Description</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Amount</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Date</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Tax Code</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Receipt</th>
-                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {expenses.map((expense) => (
-                  <tr key={expense.id}>
-                    <td className="px-3 py-2">{renderMatterName(expense.matter)}</td>
-                    <td className="px-3 py-2 text-slate-600">{expense.description}</td>
-                    <td className="px-3 py-2">${Number(expense.amount).toFixed(2)}</td>
-                    <td className="px-3 py-2">{new Date(expense.date).toLocaleDateString()}</td>
-                    <td className="px-3 py-2">{expense.tax_code || "—"}</td>
-                    <td className="px-3 py-2">{expense.receipt_file || "—"}</td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => openExpenseModal(expense)}>
-                          Edit
-                        </Button>
-                        <Button variant="danger" size="sm" onClick={() => setDeleteExpenseTarget(expense)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
+          <div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Description</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Amount</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Date</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Tax Code</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Receipt</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {expenses.map((expense) => (
+                    <tr key={expense.id}>
+                      <td className="px-3 py-2">{renderMatterName(expense.matter)}</td>
+                      <td className="px-3 py-2 text-slate-600">{expense.description}</td>
+                      <td className="px-3 py-2">${Number(expense.amount).toFixed(2)}</td>
+                      <td className="px-3 py-2">{new Date(expense.date).toLocaleDateString()}</td>
+                      <td className="px-3 py-2">{expense.tax_code || "—"}</td>
+                      <td className="px-3 py-2">{expense.receipt_file || "—"}</td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openExpenseModal(expense)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                            aria-label="Edit expense"
+                          >
+                            <PencilSquareIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteExpenseTarget(expense)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                            aria-label="Delete expense"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 md:hidden">
+              {expenses.map((expense) => (
+                <div key={expense.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-col gap-2 text-sm text-slate-600">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-slate-900">{renderMatterName(expense.matter)}</span>
+                      <span className="text-xs uppercase text-slate-500">{new Date(expense.date).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-slate-700">{expense.description}</p>
+                    <div className="flex flex-wrap gap-4 text-xs">
+                      <span className="rounded bg-slate-100 px-2 py-1 font-medium text-slate-700">${Number(expense.amount).toFixed(2)}</span>
+                      <span className="rounded bg-slate-100 px-2 py-1 text-slate-600">{expense.tax_code || "No tax"}</span>
+                      <span className="rounded bg-slate-100 px-2 py-1 text-slate-600">{expense.receipt_file ? "Receipt on file" : "No receipt"}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openExpenseModal(expense)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                      aria-label="Edit expense"
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteExpenseTarget(expense)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                      aria-label="Delete expense"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
@@ -753,20 +854,20 @@ const BillingPage = () => {
       </section>
 
       <section className="rounded-lg bg-white p-6 shadow">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-semibold text-slate-700">Invoices</h3>
-          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
             <input
               type="search"
               value={invoiceSearch}
               onChange={handleInvoiceSearchChange}
               placeholder="Search invoices..."
-              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+              className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none md:max-w-xs"
             />
             <select
               value={invoiceStatus}
               onChange={handleInvoiceStatusChange}
-              className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none md:max-w-xs"
             >
               {invoiceStatusOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -783,68 +884,135 @@ const BillingPage = () => {
         ) : invoices.length === 0 ? (
           <p className="text-sm text-slate-500">No invoices yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Number</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Issued</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Due</th>
-                  <th className="px-3 py-2 text-right font-medium text-slate-600">Total</th>
-                  <th className="px-3 py-2 text-right font-medium text-slate-600">Status</th>
-                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id}>
-                    <td className="px-3 py-2">{invoice.number}</td>
-                    <td className="px-3 py-2">{renderMatterName(invoice.matter)}</td>
-                    <td className="px-3 py-2">{new Date(invoice.issue_date).toLocaleDateString()}</td>
-                    <td className="px-3 py-2">{new Date(invoice.due_date).toLocaleDateString()}</td>
-                    <td className="px-3 py-2 text-right">${Number(invoice.total).toFixed(2)}</td>
-                    <td className={`px-3 py-2 text-right capitalize ${
-                      invoice.status === "paid"
-                        ? "text-emerald-600"
-                        : invoice.status === "overdue"
-                        ? "text-red-600"
-                        : "text-slate-600"
-                    }`}>
-                      {invoice.status}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleSendInvoice(invoice)}
-                          disabled={sendingInvoiceId === invoice.id || invoice.status === "paid"}
-                        >
-                          {sendingInvoiceId === invoice.id ? "Sending..." : "Send"}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleMarkInvoicePaid(invoice)}
-                          disabled={markingInvoiceId === invoice.id || invoice.status === "paid"}
-                        >
-                          {markingInvoiceId === invoice.id ? "Saving..." : "Mark Paid"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownloadInvoice(invoice)}
-                          disabled={downloadingInvoiceId === invoice.id}
-                        >
-                          {downloadingInvoiceId === invoice.id ? "Preparing..." : "Download"}
-                        </Button>
-                      </div>
-                    </td>
+          <div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Number</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Issued</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Due</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-600">Total</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-600">Status</th>
+                    <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td className="px-3 py-2">{invoice.number}</td>
+                      <td className="px-3 py-2">{renderMatterName(invoice.matter)}</td>
+                      <td className="px-3 py-2">{new Date(invoice.issue_date).toLocaleDateString()}</td>
+                      <td className="px-3 py-2">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                      <td className="px-3 py-2 text-right">${Number(invoice.total).toFixed(2)}</td>
+                      <td className={`px-3 py-2 text-right capitalize ${
+                        invoice.status === "paid"
+                          ? "text-emerald-600"
+                          : invoice.status === "overdue"
+                          ? "text-red-600"
+                          : "text-slate-600"
+                      }`}>
+                        {invoice.status}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleSendInvoice(invoice)}
+                            disabled={sendingInvoiceId === invoice.id || invoice.status === "paid"}
+                          >
+                            {sendingInvoiceId === invoice.id ? "Sending..." : "Send"}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleMarkInvoicePaid(invoice)}
+                            disabled={markingInvoiceId === invoice.id || invoice.status === "paid"}
+                          >
+                            {markingInvoiceId === invoice.id ? "Saving..." : "Mark Paid"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadInvoice(invoice)}
+                            disabled={downloadingInvoiceId === invoice.id}
+                          >
+                            {downloadingInvoiceId === invoice.id ? "Preparing..." : "Download"}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 md:hidden">
+              {invoices.map((invoice) => {
+                const statusColor =
+                  invoice.status === "paid"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : invoice.status === "overdue"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-slate-100 text-slate-700";
+
+                return (
+                  <div key={invoice.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col gap-2 text-sm text-slate-600">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium text-slate-900">Invoice {invoice.number}</span>
+                        <span className={`rounded-full px-2 py-1 text-xs capitalize ${statusColor}`}>
+                          {invoice.status}
+                        </span>
+                      </div>
+                      <p className="text-slate-700">{renderMatterName(invoice.matter)}</p>
+                      <div className="flex flex-wrap gap-4 text-xs">
+                        <span className="rounded bg-slate-100 px-2 py-1 text-slate-600">
+                          Issued {new Date(invoice.issue_date).toLocaleDateString()}
+                        </span>
+                        <span className="rounded bg-slate-100 px-2 py-1 text-slate-600">
+                          Due {new Date(invoice.due_date).toLocaleDateString()}
+                        </span>
+                        <span className="rounded bg-white px-2 py-1 font-medium text-slate-900">
+                          ${Number(invoice.total).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleSendInvoice(invoice)}
+                        disabled={sendingInvoiceId === invoice.id || invoice.status === "paid"}
+                      >
+                        {sendingInvoiceId === invoice.id ? "Sending..." : "Send"}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleMarkInvoicePaid(invoice)}
+                        disabled={markingInvoiceId === invoice.id || invoice.status === "paid"}
+                      >
+                        {markingInvoiceId === invoice.id ? "Saving..." : "Mark Paid"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleDownloadInvoice(invoice)}
+                        disabled={downloadingInvoiceId === invoice.id}
+                      >
+                        {downloadingInvoiceId === invoice.id ? "Preparing..." : "Download"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
         <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">

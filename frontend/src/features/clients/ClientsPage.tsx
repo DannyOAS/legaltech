@@ -7,6 +7,7 @@ import TextField from "../../components/ui/TextField";
 import Spinner from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/ToastProvider";
 import { api, ApiError } from "../../lib/api";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 interface Client {
   id: string;
@@ -262,29 +263,36 @@ const ClientsPage = () => {
       ) : clients.length === 0 ? (
         <p className="text-sm text-slate-500">No clients yet. Create your first client to get started.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Name</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Email</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Phone</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Notes</th>
-                <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {clients.map((client) => (
-                <tr key={client.id}>
-                  <td className="px-3 py-2">{client.display_name}</td>
-                  <td className="px-3 py-2">{client.primary_email}</td>
-                  <td className="px-3 py-2">{client.phone || "—"}</td>
-                  <td className="px-3 py-2 text-slate-500">{client.notes ? client.notes.slice(0, 60) : "—"}</td>
+        <div>
+          {/* Desktop Table */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Name</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Email</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Phone</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Notes</th>
+                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {clients.map((client) => (
+                  <tr key={client.id}>
+                    <td className="px-3 py-2">{client.display_name}</td>
+                    <td className="px-3 py-2">{client.primary_email}</td>
+                    <td className="px-3 py-2">{client.phone || "—"}</td>
+                    <td className="px-3 py-2 text-slate-500">{client.notes ? client.notes.slice(0, 60) : "—"}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => openEditModal(client)}>
-                        Edit
-                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(client)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                        aria-label="Edit client"
+                      >
+                        <PencilSquareIcon className="h-4 w-4" />
+                      </button>
                       {client.portal_user ? (
                         <Button variant="secondary" size="sm" disabled>
                           Portal User
@@ -299,15 +307,69 @@ const ClientsPage = () => {
                           Invite
                         </Button>
                       )}
-                      <Button variant="danger" size="sm" onClick={() => setDeleteTarget(client)}>
-                        Delete
-                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(client)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                        aria-label="Delete client"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Mobile Cards */}
+          <div className="space-y-3 md:hidden">
+            {clients.map((client) => (
+              <div key={client.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="mb-3">
+                  <h3 className="font-medium text-slate-900">{client.display_name}</h3>
+                  <p className="text-sm text-slate-600">{client.primary_email}</p>
+                  {client.phone && <p className="text-sm text-slate-500">{client.phone}</p>}
+                </div>
+                {client.notes && (
+                  <p className="mb-3 text-sm text-slate-500">{client.notes.slice(0, 80)}...</p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(client)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                    aria-label="Edit client"
+                  >
+                    <PencilSquareIcon className="h-4 w-4" />
+                  </button>
+                  {client.portal_user ? (
+                    <Button variant="secondary" size="sm" disabled>
+                      Portal User
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => inviteClient(client)}
+                      disabled={isInviting || !clientRoleId}
+                    >
+                      Invite
+                    </Button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(client)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                    aria-label="Delete client"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

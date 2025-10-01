@@ -105,8 +105,8 @@ class MFASetupView(generics.GenericAPIView):
 
     def post(self, request: Request) -> Response:
         secret = generate_secret()
-        request.user.mfa_secret = secret
-        request.user.save(update_fields=["mfa_secret"])
+        request.user.mfa_pending_secret = secret
+        request.user.save(update_fields=["mfa_pending_secret"])
         issuer = getattr(request, "organization_id", None) or request.user.organization.name
         qr_uri = provisioning_uri(secret, name=request.user.email, issuer=f"MapleLegal - {issuer}")
         return Response({"secret": secret, "qr_uri": qr_uri})
@@ -118,14 +118,26 @@ class MFAVerifyView(generics.GenericAPIView):
     def post(self, request: Request) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        # Enable MFA and clear enforcement flag if applicable
-        request.user.mfa_enabled = True
-        if request.user.mfa_enforced_at and not request.user.mfa_enabled:
-            # Clear the enforcement flag since user has now set up MFA
-            request.user.mfa_enforced_at = None
-        
-        request.user.save(update_fields=["mfa_enabled", "mfa_enforced_at"])
+        user = request.user
+        updates: list[str] = []
+
+        if serializer.validated_data.get("using_pending_secret") and user.mfa_pending_secret:
+            user.mfa_secret = user.mfa_pending_secret
+            user.mfa_pending_secret = None
+            updates.extend(["mfa_secret", "mfa_pending_secret"])
+
+        if not user.mfa_enabled:
+            user.mfa_enabled = True
+            updates.append("mfa_enabled")
+
+        if user.mfa_enforced_at:
+            user.mfa_enforced_at = None
+            updates.append("mfa_enforced_at")
+
+        if updates:
+            # Use dict to keep field order unique while preserving original ordering
+            user.save(update_fields=list(dict.fromkeys(updates)))
+
         audit_action(request.organization_id, request.user.id, "mfa.enabled", "user", str(request.user.id), request)
         
         # Generate tokens for immediate login after MFA setup

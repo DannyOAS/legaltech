@@ -8,6 +8,7 @@ import Spinner from "../../components/ui/Spinner";
 import TextField from "../../components/ui/TextField";
 import { useToast } from "../../components/ui/ToastProvider";
 import { api, ApiError } from "../../lib/api";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 interface ClientOption {
   id: string;
@@ -257,50 +258,108 @@ const MattersPage = () => {
       ) : matters.length === 0 ? (
         <p className="text-sm text-slate-500">No matters yet. Create your first matter to get started.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Reference</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Title</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Client</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Practice Area</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
-                <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {matters.map((matter) => (
-                <tr key={matter.id}>
-                  <td className="px-3 py-2 text-primary-600">
-                    <Link to={`/matters/${matter.id}`}>{matter.reference_code}</Link>
-                  </td>
-                  <td className="px-3 py-2">{matter.title}</td>
-                  <td className="px-3 py-2">{matter.client?.display_name ?? "Unknown"}</td>
-                  <td className="px-3 py-2">{matter.practice_area}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs ${
-                        matter.status === "open" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      {matter.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => openEditModal(matter)}>
-                        Edit
-                      </Button>
-                      <Button variant="danger" size="sm" onClick={() => setDeleteTarget(matter)}>
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
+        <div>
+          {/* Desktop Table */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Reference</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Title</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Client</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Practice Area</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
+                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {matters.map((matter) => (
+                  <tr key={matter.id}>
+                    <td className="px-3 py-2 text-primary-600">
+                      <Link to={`/matters/${matter.id}`}>{matter.reference_code}</Link>
+                    </td>
+                    <td className="px-3 py-2">{matter.title}</td>
+                    <td className="px-3 py-2">{matter.client?.display_name ?? "Unknown"}</td>
+                    <td className="px-3 py-2">{matter.practice_area}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs ${
+                          matter.status === "open" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {matter.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(matter)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                          aria-label="Edit matter"
+                        >
+                          <PencilSquareIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(matter)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                          aria-label="Delete matter"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Mobile Cards */}
+          <div className="space-y-3 md:hidden">
+            {matters.map((matter) => (
+              <div key={matter.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link to={`/matters/${matter.id}`} className="font-medium text-primary-600">
+                        {matter.reference_code}
+                      </Link>
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs ${
+                          matter.status === "open" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {matter.status}
+                      </span>
+                    </div>
+                    <h3 className="mt-1 font-medium text-slate-900">{matter.title}</h3>
+                    <p className="text-sm text-slate-600">{matter.client?.display_name ?? "Unknown"}</p>
+                    <p className="text-sm text-slate-500">{matter.practice_area}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(matter)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                    aria-label="Edit matter"
+                  >
+                    <PencilSquareIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(matter)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                    aria-label="Delete matter"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

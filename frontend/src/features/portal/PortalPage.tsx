@@ -1,4 +1,5 @@
 import { Combobox, Transition } from "@headlessui/react";
+import { ArrowDownTrayIcon, DocumentMagnifyingGlassIcon, LinkIcon } from "@heroicons/react/24/outline";
 import { Fragment, ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import ContractAnalysisModal from "./ContractAnalysisModal";
@@ -288,7 +289,7 @@ const PortalPage = () => {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 xl:grid-cols-2">
       <section className="rounded bg-white p-6 shadow">
         <h2 className="text-lg font-semibold text-slate-700">Document Upload</h2>
         <form onSubmit={submitDoc} className="mt-4 space-y-4 text-sm">
@@ -423,7 +424,7 @@ const PortalPage = () => {
         </form>
       </section>
       <section className="rounded bg-white p-6 shadow">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <h2 className="text-lg font-semibold text-slate-700">Recent Documents</h2>
           <input
             type="search"
@@ -433,71 +434,81 @@ const PortalPage = () => {
               setPage(0);
             }}
             placeholder="Search documents..."
-            className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none lg:max-w-xs"
           />
         </div>
         <ul className="mt-4 space-y-3 text-sm">
           {documents.length ? (
             documents.map((doc) => (
-              <li key={doc.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="font-medium text-primary-600 hover:underline"
-                      onClick={() => setDetailsDocument(doc)}
-                    >
-                      {doc.filename}
-                    </button>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">v{doc.version}</span>
+              <li key={doc.id} className="rounded border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="font-medium text-primary-600 hover:underline"
+                        onClick={() => setDetailsDocument(doc)}
+                      >
+                        {doc.filename}
+                      </button>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">v{doc.version}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <span>{new Date(doc.uploaded_at).toLocaleString()}</span>
+                      <span>• {(doc.size / 1024 / 1024).toFixed(2)} MB</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 ${
+                          doc.scan_status === "clean"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : doc.scan_status === "pending"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {doc.scan_status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                    <span>{new Date(doc.uploaded_at).toLocaleString()}</span>
-                    <span>• {(doc.size / 1024 / 1024).toFixed(2)} MB</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 ${
-                        doc.scan_status === "clean"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : doc.scan_status === "pending"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {doc.scan_status}
-                    </span>
+                    <div className="flex flex-col gap-2 sm:items-end">
+                      <label className="flex items-center gap-2 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={doc.client_visible}
+                          onChange={() => toggleClientVisibility(doc)}
+                          disabled={togglingDocumentId === doc.id}
+                        />
+                        Portal access
+                      </label>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <button
+                        onClick={() => downloadDocument(doc.id, doc.filename)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                        title="Download file"
+                        aria-label="Download document"
+                      >
+                        <ArrowDownTrayIcon className="h-4 w-4" />
+                        <span className="sr-only">Download</span>
+                      </button>
+                      <button
+                        onClick={() => copyDownloadLink(doc.id)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                        title="Copy download link"
+                        aria-label="Copy download link"
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                        <span className="sr-only">Copy Link</span>
+                      </button>
+                      <button
+                        onClick={() => setAnalysisDoc(doc)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary-300 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                        title="Analyze contract"
+                        aria-label="Analyze contract"
+                      >
+                        <DocumentMagnifyingGlassIcon className="h-4 w-4" />
+                        <span className="sr-only">Analyze</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 ml-4">
-                  <label className="flex items-center gap-1 text-xs text-slate-600">
-                   <input
-                      type="checkbox"
-                      checked={doc.client_visible}
-                      onChange={() => toggleClientVisibility(doc)}
-                      disabled={togglingDocumentId === doc.id}
-                    />
-                    Portal access
-                  </label>
-                  <button
-                    onClick={() => downloadDocument(doc.id, doc.filename)}
-                    className="text-xs bg-primary-600 text-white px-2 py-1 rounded hover:bg-primary-700 transition-colors"
-                    title="Download file"
-                  >
-                    Download
-                  </button>
-                  <button
-                    onClick={() => copyDownloadLink(doc.id)}
-                    className="text-xs bg-slate-600 text-white px-2 py-1 rounded hover:bg-slate-700 transition-colors"
-                    title="Copy download link"
-                  >
-                  Copy Link
-                  </button>
-                  <button
-                    onClick={() => setAnalysisDoc(doc)}
-                    className="text-xs bg-amber-600 text-white px-2 py-1 rounded hover:bg-amber-700 transition-colors"
-                    title="Analyze contract"
-                  >
-                    Analyze
-                  </button>
                 </div>
               </li>
             ))
