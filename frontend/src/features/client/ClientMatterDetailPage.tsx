@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import useSWR from "swr";
 import Button from "../../components/ui/Button";
 import Skeleton from "../../components/ui/Skeleton";
+import Spinner from "../../components/ui/Spinner";
 import { api, ApiError } from "../../lib/api";
 
 interface ClientMatter {
@@ -71,6 +72,7 @@ const ClientMatterDetailPage = () => {
   const [messageDraft, setMessageDraft] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [creatingThread, setCreatingThread] = useState(false);
 
   const { data: matter, error, isLoading } = useSWR<ClientMatter>(id ? `/client/matters/${id}/` : null, fetcher);
 
@@ -98,7 +100,6 @@ const ClientMatterDetailPage = () => {
     mutate: mutateThreads,
     isLoading: isLoadingThreads,
   } = useSWR<PaginatedResponse<ClientThread>>(threadsKey, fetcher);
-  const [creatingThread, setCreatingThread] = useState(false);
 
   const threads = threadsData?.results ?? [];
 
@@ -278,7 +279,6 @@ const ClientMatterDetailPage = () => {
                 {downloadingDocId === doc.id ? "Preparing..." : "Download"}
               </Button>
             </li>
-          ))}
         </ul>
       )}
       <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
@@ -494,40 +494,23 @@ const ClientMatterDetailPage = () => {
               ))}
             </select>
           </div>
-        ) : threads.length === 0 ? (
-          <div className="rounded border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-            <p>No conversations yet.</p>
+        <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            {totalInvoices === 0
+              ? "No invoices"
+              : invoices.length === 0
+              ? `Showing 0 of ${totalInvoices}`
+              : `Showing ${invoicePage * PAGE_SIZE + 1}-${invoicePage * PAGE_SIZE + invoices.length} of ${totalInvoices}`}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+              type="button"
+              className={`flex-1 rounded border px-3 py-1 text-center text-xs transition-colors sm:flex-none sm:w-auto ${
+              className={`flex-1 rounded border px-3 py-1 text-center text-xs transition-colors sm:flex-none sm:w-auto ${
+      </>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <label className="text-xs font-medium uppercase tracking-wide text-slate-500" htmlFor="client-thread-select">
             <Button className="mt-3" size="sm" onClick={handleCreateThread} disabled={creatingThread}>
-              {creatingThread ? "Starting..." : "Start Conversation"}
-            </Button>
-          </div>
-        ) : null}
 
-        <div className="max-h-96 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-3">
-          {messages.length === 0 ? (
-            <p className="text-sm text-slate-500">No messages yet. Start the conversation below.</p>
-          ) : (
-            <ul className="space-y-3 text-sm">
-              {messages.map((message) => {
-                const isClient = Boolean(message.sender_client);
-                return (
-                  <li key={message.id} className={`flex ${isClient ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                        isClient ? "bg-primary-600 text-white" : "bg-white text-slate-700 shadow"
-                      }`}
-                    >
-                      <p>{message.body}</p>
-                      <time className={`mt-1 block text-xs ${isClient ? "text-primary-100" : "text-slate-400"}`}>
-                        {new Date(message.created_at).toLocaleString()}
-                      </time>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
 
         <form className="space-y-2" onSubmit={handleSendMessage}>
           <textarea

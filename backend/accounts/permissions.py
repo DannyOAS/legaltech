@@ -10,6 +10,7 @@ from rest_framework.request import Request
 
 from .models import Role
 
+    def has_permission(self, request: Request, view) -> bool:  # type: ignore[override]
 
 def _role_names(user) -> set[str]:
     names = getattr(user, "_cached_role_names", None)

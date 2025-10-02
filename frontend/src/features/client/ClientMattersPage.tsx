@@ -37,6 +37,7 @@ const ClientMattersPage = () => {
     }
     return `/client/matters/?${params.toString()}`;
   }, [offset, searchValue]);
+
   const { data, isLoading } = useSWR<PaginatedResponse<ClientMatter>>(key, fetcher);
   const matters = data?.results ?? [];
   const total = data?.count ?? 0;
@@ -62,12 +63,30 @@ const ClientMattersPage = () => {
 
   const renderLoadingSkeleton = (rows = 5) => (
     <>
+      <ul className="space-y-3 text-sm md:hidden">
+        {Array.from({ length: rows }).map((_, index) => (
+          <li key={index} className="space-y-3 rounded-xl border border-slate-200 p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="mt-2 h-3 w-24" />
+              </div>
+              <Skeleton className="h-5 w-16" />
+            </div>
+            <div className="space-y-2 text-xs">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+            <Skeleton className="h-9 w-full" />
+          </li>
+        ))}
+      </ul>
       <div className="hidden md:block">
-        <div className="overflow-hidden rounded-lg border border-slate-200">
+        <div className="overflow-hidden rounded-xl border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <tbody className="divide-y divide-slate-100">
               {Array.from({ length: rows }).map((_, index) => (
-                <tr key={index} className="bg-white">
+                <tr key={index}>
                   <td className="px-3 py-3"><Skeleton className="h-4 w-32" /></td>
                   <td className="px-3 py-3"><Skeleton className="h-4 w-48" /></td>
                   <td className="px-3 py-3"><Skeleton className="h-4 w-32" /></td>
@@ -79,22 +98,6 @@ const ClientMattersPage = () => {
             </tbody>
           </table>
         </div>
-      </div>
-      <div className="space-y-3 md:hidden">
-        {Array.from({ length: rows }).map((_, index) => (
-          <div key={index} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="mt-2 h-5 w-40" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-4 w-28" />
-            </div>
-            <Skeleton className="mt-4 h-9 w-24" />
-          </div>
-        ))}
       </div>
     </>
   );

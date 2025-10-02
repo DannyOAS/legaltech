@@ -53,11 +53,6 @@ class Matter(TimeStampedModel):
     team_members = models.ManyToManyField(User, through="MatterAccess", related_name="matters", blank=True)
     is_deleted = models.BooleanField(default=False)
 
-    class Meta:
-        ordering = ["-opened_at"]
-        indexes = [models.Index(fields=["reference_code"])]
-
-    def __str__(self) -> str:
         return self.title
 
     def save(self, *args, **kwargs):
