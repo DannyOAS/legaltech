@@ -68,9 +68,12 @@ const ClientDocumentsPage = () => {
   };
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-slate-700">My Documents</h2>
+    <section className="space-y-6 rounded-lg bg-white p-6 shadow">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-slate-700">My Documents</h2>
+          <p className="text-sm text-slate-500 md:hidden">Download and review files shared to your matters.</p>
+        </div>
         <input
           type="search"
           value={searchValue}
@@ -79,25 +82,32 @@ const ClientDocumentsPage = () => {
             setPage(0);
           }}
           placeholder="Search documents..."
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+          className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none md:max-w-xs"
         />
       </div>
-      {status && <div className="mb-4 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{status}</div>}
-      <ul className="mt-4 space-y-3 text-sm">
+      {status && <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{status}</div>}
+      <ul className="space-y-3 text-sm">
         {documents.length ? (
           documents.map((doc) => (
-            <li key={doc.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
-              <div>
-                <p className="font-medium text-slate-700">{doc.filename}</p>
-                <p className="text-xs text-slate-500">{doc.mime} · {(doc.size / 1024).toFixed(1)} KB</p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
+            <li key={doc.id} className="space-y-3 rounded-xl border border-slate-200 p-4 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-2">
+                  <p className="text-base font-semibold text-slate-700">{doc.filename}</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                    <span>{doc.mime || "Unknown"}</span>
+                    <span>·</span>
+                    <span>{(doc.size / 1024).toFixed(1)} KB</span>
+                  </div>
+                </div>
                 <time className="text-xs text-slate-500">{new Date(doc.uploaded_at).toLocaleString()}</time>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500 sm:text-sm">Tap download to save a copy of this file.</p>
                 <button
                   type="button"
                   onClick={() => downloadDocument(doc)}
                   disabled={downloadingId === doc.id}
-                  className="rounded bg-primary-600 px-2 py-1 text-xs text-white transition-colors hover:bg-primary-500 disabled:cursor-progress disabled:bg-primary-300"
+                  className="w-full rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:cursor-progress disabled:bg-primary-300 sm:w-auto"
                 >
                   {downloadingId === doc.id ? "Preparing..." : "Download"}
                 </button>
@@ -105,10 +115,12 @@ const ClientDocumentsPage = () => {
             </li>
           ))
         ) : (
-          <li className="text-slate-500">No documents available yet.</li>
+          <li className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-slate-500">
+            No documents available yet.
+          </li>
         )}
       </ul>
-      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
         <div>
           {totalDocuments === 0
             ? "No results"
@@ -116,12 +128,12 @@ const ClientDocumentsPage = () => {
             ? `Showing 0 of ${totalDocuments}`
             : `Showing ${offset + 1}-${offset + documents.length} of ${totalDocuments}`}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
             disabled={!hasPrevious}
-            className={`rounded border px-3 py-1 text-sm transition-colors ${
+            className={`flex-1 rounded border px-3 py-1 text-center text-sm transition-colors md:flex-none md:w-auto ${
               hasPrevious ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
             }`}
           >
@@ -131,7 +143,7 @@ const ClientDocumentsPage = () => {
             type="button"
             onClick={() => setPage((prev) => (hasNext ? prev + 1 : prev))}
             disabled={!hasNext}
-            className={`rounded border px-3 py-1 text-sm transition-colors ${
+            className={`flex-1 rounded border px-3 py-1 text-center text-sm transition-colors md:flex-none md:w-auto ${
               hasNext ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
             }`}
           >
@@ -139,7 +151,7 @@ const ClientDocumentsPage = () => {
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

@@ -47,10 +47,47 @@ const ClientInvoicesPage = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  const handleDownload = async (invoice: ClientInvoice) => {
+    try {
+      setDownloadingId(invoice.id);
+      setStatusMessage("Generating invoice PDF...");
+      const response = await api.get<{ url: string | { url: string } }>(`/client/invoices/${invoice.id}/download/`);
+      const url = typeof response.url === "string" ? response.url : response.url?.url;
+      if (!url) {
+        throw new Error("No download URL returned");
+      }
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.number}.pdf`;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setStatusMessage("Invoice download started");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.payload.detail ?? "Unable to download invoice" : "Unable to download invoice";
+      setStatusMessage(message);
+    } finally {
+      setDownloadingId(null);
+      window.setTimeout(() => setStatusMessage(null), 3000);
+    }
+  };
+
+  const renderDownloadButton = (invoice: ClientInvoice, label = "Download") => (
+    <Button variant="secondary" size="sm" onClick={() => handleDownload(invoice)} disabled={downloadingId === invoice.id}>
+      {downloadingId === invoice.id ? "Preparing..." : label}
+    </Button>
+  );
+
   return (
-    <div className="rounded-lg bg-white p-6 shadow">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-slate-700">My Invoices</h2>
+    <section className="space-y-6 rounded-lg bg-white p-6 shadow">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-slate-700">My Invoices</h2>
+          <p className="text-sm text-slate-500 md:hidden">
+            Review balances, due dates, and download PDFs from anywhere.
+          </p>
+        </div>
         <input
           type="search"
           value={searchValue}
@@ -59,84 +96,85 @@ const ClientInvoicesPage = () => {
             setPage(0);
           }}
           placeholder="Search invoices..."
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+          className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none md:max-w-xs"
         />
       </div>
       {statusMessage ? (
-        <div className="mb-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{statusMessage}</div>
+        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{statusMessage}</div>
       ) : null}
-      <div className="mt-4 overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium text-slate-600">Invoice</th>
-              <th className="px-3 py-2 text-left font-medium text-slate-600">Matter</th>
-              <th className="px-3 py-2 text-left font-medium text-slate-600">Issued</th>
-              <th className="px-3 py-2 text-left font-medium text-slate-600">Due</th>
-              <th className="px-3 py-2 text-right font-medium text-slate-600">Total</th>
-              <th className="px-3 py-2 text-right font-medium text-slate-600">Status</th>
-              <th className="px-3 py-2 text-right font-medium text-slate-600">PDF</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {invoices.length ? (
-              invoices.map((invoice) => (
-                <tr key={invoice.id}>
-                  <td className="px-3 py-2">{invoice.number}</td>
-                  <td className="px-3 py-2">{invoice.matter_title}</td>
-                  <td className="px-3 py-2">{new Date(invoice.issue_date).toLocaleDateString()}</td>
-                  <td className="px-3 py-2">{new Date(invoice.due_date).toLocaleDateString()}</td>
-                  <td className="px-3 py-2 text-right">${invoice.total}</td>
-                  <td className={`px-3 py-2 text-right capitalize ${statusColor[invoice.status] ?? "text-slate-600"}`}>
+      {invoices.length ? (
+        <>
+          <ul className="space-y-3 text-sm md:hidden">
+            {invoices.map((invoice) => (
+              <li key={invoice.id} className="space-y-3 rounded-xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-base font-semibold text-slate-700">Invoice {invoice.number}</p>
+                    <p className="text-xs text-slate-500">{invoice.matter_title}</p>
+                  </div>
+                  <span
+                    className={`rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize ${
+                      statusColor[invoice.status] ?? "text-slate-600"
+                    }`}
+                  >
                     {invoice.status}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          setDownloadingId(invoice.id);
-                          setStatusMessage("Generating invoice PDF...");
-                          const response = await api.get<{ url: string | { url: string } }>(`/client/invoices/${invoice.id}/download/`);
-                          const url = typeof response.url === "string" ? response.url : response.url?.url;
-                          if (!url) {
-                            throw new Error("No download URL returned");
-                          }
-                          const link = document.createElement("a");
-                          link.href = url;
-                          link.download = `${invoice.number}.pdf`;
-                          link.target = "_blank";
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          setStatusMessage("Invoice download started");
-                        } catch (err) {
-                          const message = err instanceof ApiError ? err.payload.detail ?? "Unable to download invoice" : "Unable to download invoice";
-                          setStatusMessage(message);
-                        } finally {
-                          setDownloadingId(null);
-                          window.setTimeout(() => setStatusMessage(null), 3000);
-                        }
-                      }}
-                      disabled={downloadingId === invoice.id}
-                    >
-                      {downloadingId === invoice.id ? "Preparing..." : "Download"}
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-500">
-                  No invoices yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                  </span>
+                </div>
+                <dl className="grid gap-2 text-xs text-slate-500">
+                  <div className="flex justify-between gap-2">
+                    <dt className="font-medium text-slate-600">Issued</dt>
+                    <dd className="text-right">{new Date(invoice.issue_date).toLocaleDateString()}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="font-medium text-slate-600">Due</dt>
+                    <dd className="text-right">{new Date(invoice.due_date).toLocaleDateString()}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="font-medium text-slate-600">Total</dt>
+                    <dd className="text-right">${invoice.total}</dd>
+                  </div>
+                </dl>
+                {renderDownloadButton(invoice, "Download PDF")}
+              </li>
+            ))}
+          </ul>
+          <div className="hidden md:block">
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Invoice</th>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Matter</th>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Issued</th>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Due</th>
+                    <th className="px-3 py-3 text-right font-medium text-slate-600">Total</th>
+                    <th className="px-3 py-3 text-right font-medium text-slate-600">Status</th>
+                    <th className="px-3 py-3 text-right font-medium text-slate-600">PDF</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-3">{invoice.number}</td>
+                      <td className="px-3 py-3">{invoice.matter_title}</td>
+                      <td className="px-3 py-3">{new Date(invoice.issue_date).toLocaleDateString()}</td>
+                      <td className="px-3 py-3">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                      <td className="px-3 py-3 text-right">${invoice.total}</td>
+                      <td className={`px-3 py-3 text-right capitalize ${statusColor[invoice.status] ?? "text-slate-600"}`}>
+                        {invoice.status}
+                      </td>
+                      <td className="px-3 py-3 text-right">{renderDownloadButton(invoice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-slate-500">No invoices yet.</p>
+      )}
+      <div className="flex flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
         <div>
           {totalInvoices === 0
             ? "No results"
@@ -144,12 +182,12 @@ const ClientInvoicesPage = () => {
             ? `Showing 0 of ${totalInvoices}`
             : `Showing ${offset + 1}-${offset + invoices.length} of ${totalInvoices}`}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
             disabled={!hasPrevious}
-            className={`rounded border px-3 py-1 text-sm transition-colors ${
+            className={`flex-1 rounded border px-3 py-1 text-center text-sm transition-colors md:flex-none md:w-auto ${
               hasPrevious ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
             }`}
           >
@@ -159,7 +197,7 @@ const ClientInvoicesPage = () => {
             type="button"
             onClick={() => setPage((prev) => (hasNext ? prev + 1 : prev))}
             disabled={!hasNext}
-            className={`rounded border px-3 py-1 text-sm transition-colors ${
+            className={`flex-1 rounded border px-3 py-1 text-center text-sm transition-colors md:flex-none md:w-auto ${
               hasNext ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
             }`}
           >
@@ -167,7 +205,7 @@ const ClientInvoicesPage = () => {
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
