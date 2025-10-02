@@ -1,18 +1,27 @@
 """Audit logging helpers."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
+from django.apps import apps
 from django.conf import settings
 
 from .context import get_current_org
-from django.apps import apps
 
 logger = logging.getLogger(settings.AUDIT_EVENT_NAME)
 
 
-def audit_action(organization_id: str | None, actor_id: str | None, action: str, resource_type: str, resource_id: str, request, metadata: dict[str, Any] | None = None) -> None:
+def audit_action(
+    organization_id: str | None,
+    actor_id: str | None,
+    action: str,
+    resource_type: str,
+    resource_id: str,
+    request,
+    metadata: dict[str, Any] | None = None,
+) -> None:
     if organization_id is None:
         return
     metadata = metadata or {}

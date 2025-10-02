@@ -1,4 +1,5 @@
 """Account and organization models."""
+
 from __future__ import annotations
 
 import secrets
@@ -14,7 +15,7 @@ from django.db import models
 from django.utils import timezone
 
 if TYPE_CHECKING:
-    from matters.models import Client
+    pass
 
 
 class Organization(models.Model):
@@ -143,18 +144,21 @@ class User(AbstractBaseUser, PermissionsMixin):
     def record_login(self) -> None:
         """Record successful login timestamp."""
         from django.utils import timezone
+
         self.last_login_at = timezone.now()
         self.save(update_fields=["last_login_at"])
 
     def enforce_mfa_setup(self) -> None:
         """Mark that MFA enforcement has been applied."""
         from django.utils import timezone
+
         self.mfa_enforced_at = timezone.now()
         self.save(update_fields=["mfa_enforced_at"])
 
     def record_password_change(self) -> None:
         """Record when password was changed for security tracking."""
         from django.utils import timezone
+
         self.password_changed_at = timezone.now()
         self.save(update_fields=["password_changed_at"])
 
@@ -205,9 +209,19 @@ class Invitation(models.Model):
     role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="invitations")
     token = models.CharField(max_length=128, unique=True)
     expires_at = models.DateTimeField()
-    organization = models.ForeignKey(Organization, related_name="invitations", on_delete=models.CASCADE)
-    invited_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="sent_invitations")
-    client = models.ForeignKey("matters.Client", null=True, blank=True, on_delete=models.SET_NULL, related_name="invitations")
+    organization = models.ForeignKey(
+        Organization, related_name="invitations", on_delete=models.CASCADE
+    )
+    invited_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="sent_invitations"
+    )
+    client = models.ForeignKey(
+        "matters.Client",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="invitations",
+    )
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
     accepted_at = models.DateTimeField(null=True, blank=True)
     last_sent_at = models.DateTimeField(null=True, blank=True)
@@ -225,10 +239,10 @@ class Invitation(models.Model):
         organization: Organization,
         *,
         invited_by: User | None = None,
-        client: "matters.Client" | None = None,
+        client: matters.Client | None = None,
         ttl_hours: int = 72,
         metadata: dict | None = None,
-    ) -> "Invitation":
+    ) -> Invitation:
         token = secrets.token_urlsafe(32)
         expires_at = timezone.now() + timedelta(hours=ttl_hours)
         invitation = cls.objects.create(
@@ -257,7 +271,9 @@ class APIToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     hashed_key = models.CharField(max_length=128)
-    organization = models.ForeignKey(Organization, related_name="api_tokens", on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="api_tokens", on_delete=models.CASCADE
+    )
     scopes = ArrayField(models.CharField(max_length=50), default=list)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -88,4 +88,4 @@ def calculate_deadlines(event_type: str, filing_date: date, court: str = "ONSC")
             priority=priority
         ))
     
-    return sorted(deadlines, key=lambda d: d.due_date) 
+    return sorted(deadlines, key=lambda d: d.due_date)

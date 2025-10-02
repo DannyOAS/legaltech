@@ -1,4 +1,5 @@
 """Billing models for time tracking and invoices."""
+
 from __future__ import annotations
 
 import uuid
@@ -11,9 +12,13 @@ from matters.models import Matter
 
 class TimeEntry(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="time_entries")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="time_entries"
+    )
     matter = models.ForeignKey(Matter, related_name="time_entries", on_delete=models.CASCADE)
-    user = models.ForeignKey(User, related_name="time_entries", on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey(
+        User, related_name="time_entries", on_delete=models.SET_NULL, null=True
+    )
     description = models.TextField()
     minutes = models.PositiveIntegerField()
     rate = models.DecimalField(max_digits=8, decimal_places=2)
@@ -21,7 +26,12 @@ class TimeEntry(models.Model):
     billable = models.BooleanField(default=True)
     source = models.CharField(
         max_length=12,
-        choices=[("email", "Email"), ("doc", "Document"), ("call", "Phone Call"), ("manual", "Manual")],
+        choices=[
+            ("email", "Email"),
+            ("doc", "Document"),
+            ("call", "Phone Call"),
+            ("manual", "Manual"),
+        ],
         default="manual",
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -33,7 +43,9 @@ class TimeEntry(models.Model):
 
 class Expense(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="expenses")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="expenses"
+    )
     matter = models.ForeignKey(Matter, related_name="expenses", on_delete=models.CASCADE)
     description = models.TextField()
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -56,7 +68,9 @@ class Invoice(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="invoices")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="invoices"
+    )
     matter = models.ForeignKey(Matter, related_name="invoices", on_delete=models.CASCADE)
     number = models.CharField(max_length=32)
     issue_date = models.DateField()
@@ -82,7 +96,9 @@ class Payment(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="payments")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="payments"
+    )
     invoice = models.ForeignKey(Invoice, related_name="payments", on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField()

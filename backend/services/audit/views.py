@@ -1,4 +1,5 @@
 """Audit event viewsets."""
+
 from config.tenancy import OrganizationModelViewSet
 
 from .models import AuditEvent

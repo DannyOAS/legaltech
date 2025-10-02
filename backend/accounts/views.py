@@ -1,4 +1,5 @@
 """API views for account management."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -15,17 +16,17 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from config.tenancy import OrganizationModelViewSet
 from services.audit.logging import audit_action
 from services.notifications.email import send_invitation_email
-from .mfa import generate_secret, provisioning_uri
 
+from .mfa import generate_secret, provisioning_uri
 from .models import APIToken, Invitation, Organization, Role, User
 from .permissions import IsNotClient, IsOrgAdminOrReadOnly, IsOrganizationMember
 from .serializers import (
     APITokenSerializer,
+    InvitationAcceptSerializer,
     InvitationSerializer,
     LoginSerializer,
     MFASetupSerializer,
     MFAVerifySerializer,
-    InvitationAcceptSerializer,
     OrganizationSerializer,
     RefreshSerializer,
     RoleSerializer,
@@ -42,32 +43,60 @@ class LoginView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
-        
+
         # Record login timestamp for security tracking
         user.record_login()
-        
+
         # Check if staff user needs MFA enforcement (Ontario compliance)
         if user.needs_mfa_enforcement():
             user.enforce_mfa_setup()
-            audit_action(user.organization_id, user.id, "mfa.enforcement_applied", "user", str(user.id), request)
-            return Response({
-                "mfa_setup_required": True,
-                "message": "MFA setup is required for staff accounts to comply with Ontario security standards."
-            }, status=status.HTTP_202_ACCEPTED)
-        
+            audit_action(
+                user.organization_id,
+                user.id,
+                "mfa.enforcement_applied",
+                "user",
+                str(user.id),
+                request,
+            )
+            return Response(
+                {
+                    "mfa_setup_required": True,
+                    "message": "MFA setup is required for staff accounts to comply with Ontario security standards.",
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+
         refresh = RefreshToken.for_user(user)
         refresh["org_id"] = str(user.organization_id)
         access_token = TokenObtainPairSerializer.get_token(user).access_token
-        
+
         # Include MFA setup requirement in response
         user_data = UserSerializer(user).data
         user_data["requires_mfa_setup"] = user.requires_mfa_setup()
-        
+
         response = Response(user_data, status=status.HTTP_200_OK)
         expiry = timezone.now() + timedelta(minutes=15)
-        response.set_cookie(settings.ACCESS_TOKEN_COOKIE_NAME, str(access_token), httponly=True, secure=not settings.DEBUG, samesite="Lax", expires=expiry)
-        response.set_cookie(settings.REFRESH_TOKEN_COOKIE_NAME, str(refresh), httponly=True, secure=not settings.DEBUG, samesite="Strict")
-        response.set_cookie(settings.CSRF_TOKEN_COOKIE_NAME, refresh.get("jti"), httponly=False, secure=not settings.DEBUG)
+        response.set_cookie(
+            settings.ACCESS_TOKEN_COOKIE_NAME,
+            str(access_token),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+            expires=expiry,
+        )
+        response.set_cookie(
+            settings.REFRESH_TOKEN_COOKIE_NAME,
+            str(refresh),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Strict",
+        )
+        response.set_cookie(
+            settings.CSRF_TOKEN_COOKIE_NAME,
+            refresh.get("jti"),
+            httponly=False,
+            secure=not settings.DEBUG,
+        )
         audit_action(user.organization_id, user.id, "auth.login", "user", str(user.id), request)
         return response
 
@@ -77,7 +106,14 @@ class LogoutView(generics.GenericAPIView):
         response = Response(status=status.HTTP_204_NO_CONTENT)
         response.delete_cookie(settings.ACCESS_TOKEN_COOKIE_NAME)
         response.delete_cookie(settings.REFRESH_TOKEN_COOKIE_NAME)
-        audit_action(request.organization_id, request.user.id, "auth.logout", "user", str(request.user.id), request)
+        audit_action(
+            request.organization_id,
+            request.user.id,
+            "auth.logout",
+            "user",
+            str(request.user.id),
+            request,
+        )
         return response
 
 
@@ -86,7 +122,9 @@ class RefreshView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
-        refresh_token = request.data.get("refresh") or request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME)
+        refresh_token = request.data.get("refresh") or request.COOKIES.get(
+            settings.REFRESH_TOKEN_COOKIE_NAME
+        )
         serializer = self.get_serializer(data={"refresh": refresh_token})
         serializer.is_valid(raise_exception=True)
         refresh = RefreshToken(serializer.validated_data["refresh"])
@@ -94,8 +132,19 @@ class RefreshView(generics.GenericAPIView):
         request.organization_id = str(user.organization_id)
         access_token = TokenObtainPairSerializer.get_token(user).access_token
         response = Response(UserSerializer(user).data)
-        response.set_cookie(settings.ACCESS_TOKEN_COOKIE_NAME, str(access_token), httponly=True, secure=not settings.DEBUG, samesite="Lax")
-        response.set_cookie(settings.CSRF_TOKEN_COOKIE_NAME, refresh.get("jti"), httponly=False, secure=not settings.DEBUG)
+        response.set_cookie(
+            settings.ACCESS_TOKEN_COOKIE_NAME,
+            str(access_token),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+        )
+        response.set_cookie(
+            settings.CSRF_TOKEN_COOKIE_NAME,
+            refresh.get("jti"),
+            httponly=False,
+            secure=not settings.DEBUG,
+        )
         audit_action(user.organization_id, user.id, "auth.refresh", "user", str(user.id), request)
         return response
 
@@ -138,28 +187,48 @@ class MFAVerifyView(generics.GenericAPIView):
             # Use dict to keep field order unique while preserving original ordering
             user.save(update_fields=list(dict.fromkeys(updates)))
 
-        audit_action(request.organization_id, request.user.id, "mfa.enabled", "user", str(request.user.id), request)
-        
+        audit_action(
+            request.organization_id,
+            request.user.id,
+            "mfa.enabled",
+            "user",
+            str(request.user.id),
+            request,
+        )
         # Generate tokens for immediate login after MFA setup
         refresh = RefreshToken.for_user(request.user)
         refresh["org_id"] = str(request.user.organization_id)
         access_token = TokenObtainPairSerializer.get_token(request.user).access_token
-        
+
         user_data = UserSerializer(request.user).data
         user_data["requires_mfa_setup"] = False
-        
-        response = Response({
-            "status": "ok",
-            "user": user_data,
-            "setup_complete": True
-        })
-        
+
+        response = Response({"status": "ok", "user": user_data, "setup_complete": True})
+
         # Set auth cookies for seamless login
         expiry = timezone.now() + timedelta(minutes=15)
-        response.set_cookie(settings.ACCESS_TOKEN_COOKIE_NAME, str(access_token), httponly=True, secure=not settings.DEBUG, samesite="Lax", expires=expiry)
-        response.set_cookie(settings.REFRESH_TOKEN_COOKIE_NAME, str(refresh), httponly=True, secure=not settings.DEBUG, samesite="Strict")
-        response.set_cookie(settings.CSRF_TOKEN_COOKIE_NAME, refresh.get("jti"), httponly=False, secure=not settings.DEBUG)
-        
+        response.set_cookie(
+            settings.ACCESS_TOKEN_COOKIE_NAME,
+            str(access_token),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+            expires=expiry,
+        )
+        response.set_cookie(
+            settings.REFRESH_TOKEN_COOKIE_NAME,
+            str(refresh),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Strict",
+        )
+        response.set_cookie(
+            settings.CSRF_TOKEN_COOKIE_NAME,
+            refresh.get("jti"),
+            httponly=False,
+            secure=not settings.DEBUG,
+        )
+
         return response
 
 
@@ -172,7 +241,7 @@ class InvitationAcceptView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         invitation = serializer.validated_data["invitation"]
         user = serializer.save()
-        
+
         # Comprehensive audit logging for invitation acceptance
         audit_action(
             user.organization_id,
@@ -186,9 +255,9 @@ class InvitationAcceptView(generics.GenericAPIView):
                 "role": invitation.role.name,
                 "is_client": invitation.role.name == "Client",
                 "client_id": str(invitation.client.id) if invitation.client else None,
-            }
+            },
         )
-        
+
         # Additional audit for client portal user creation if applicable
         if invitation.role.name == "Client" and invitation.client:
             audit_action(
@@ -198,17 +267,19 @@ class InvitationAcceptView(generics.GenericAPIView):
                 "client",
                 str(invitation.client.id),
                 request,
-                metadata={"user_id": str(user.id)}
+                metadata={"user_id": str(user.id)},
             )
-        
+
         # Return user data with role information for frontend routing
         user_data = UserSerializer(user).data
         user_data["roles"] = [invitation.role.name]
-        
+
         return Response(user_data, status=status.HTTP_201_CREATED)
 
 
-class OrganizationViewSet(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
+class OrganizationViewSet(
+    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
+):
     serializer_class = OrganizationSerializer
     permission_classes = [IsOrganizationMember]
 
@@ -232,7 +303,14 @@ class UserViewSet(OrganizationModelViewSet):
         if password:
             user.set_password(password)
             user.save(update_fields=["password"])
-        audit_action(self.request.organization_id, self.request.user.id, "user.created", "user", str(user.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "user.created",
+            "user",
+            str(user.id),
+            self.request,
+        )
 
     @action(detail=False, methods=["get"], serializer_class=UserSerializer)
     def me(self, request: Request) -> Response:
@@ -269,7 +347,14 @@ class InvitationViewSet(OrganizationModelViewSet):
         )
 
     def perform_destroy(self, instance):
-        audit_action(self.request.organization_id, self.request.user.id, "invite.revoked", "invitation", str(instance.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "invite.revoked",
+            "invitation",
+            str(instance.id),
+            self.request,
+        )
         return super().perform_destroy(instance)
 
     @action(detail=True, methods=["post"], url_path="resend")
@@ -306,4 +391,11 @@ class APITokenViewSet(OrganizationModelViewSet):
 
     def perform_create(self, serializer):
         token = serializer.save(organization=self.request.user.organization)
-        audit_action(self.request.organization_id, self.request.user.id, "api_token.created", "api_token", str(token.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "api_token.created",
+            "api_token",
+            str(token.id),
+            self.request,
+        )

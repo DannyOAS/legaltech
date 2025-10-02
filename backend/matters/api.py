@@ -1,4 +1,5 @@
 """Matters API routing."""
+
 from rest_framework.routers import DefaultRouter
 
 from .views import ClientViewSet, MatterViewSet, CaseDeadlineViewSet

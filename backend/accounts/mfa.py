@@ -1,4 +1,5 @@
 """Minimal TOTP helpers without external dependencies."""
+
 from __future__ import annotations
 
 import base64
@@ -45,6 +46,4 @@ def verify_totp(secret: str, token: str, *, interval: int = 30, window: int = 1)
 def provisioning_uri(secret: str, *, name: str, issuer: str, interval: int = 30) -> str:
     label = quote(f"{issuer}:{name}")
     issuer_escaped = quote(issuer)
-    return (
-        f"otpauth://totp/{label}?secret={secret}&issuer={issuer_escaped}&period={interval}"
-    )
+    return f"otpauth://totp/{label}?secret={secret}&issuer={issuer_escaped}&period={interval}"

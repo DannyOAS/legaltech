@@ -1,4 +1,5 @@
 """Stubbed virus scanning hooks for document uploads."""
+
 from __future__ import annotations
 
 import logging
@@ -32,7 +33,9 @@ def schedule_scan(request: ScanRequest) -> None:
     try:
         document = Document.objects.get(id=request.document_id)
     except Document.DoesNotExist:
-        logger.warning("document missing for virus scan", extra={"document_id": request.document_id})
+        logger.warning(
+            "document missing for virus scan", extra={"document_id": request.document_id}
+        )
         return
     document.scan_status = "clean"
     document.scan_message = "Stub scan: clean"

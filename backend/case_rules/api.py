@@ -1,7 +1,9 @@
 """API endpoint for calculating case deadlines."""
+
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
+
 from django.conf import settings
 from django.utils import timezone
 
@@ -11,12 +13,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsOrganizationMember
-
 from config.tenancy import OrganizationScopedPrimaryKeyRelatedField
-from matters.models import Matter, CaseDeadline
+from matters.models import CaseDeadline, Matter
 from services.audit.logging import audit_action
 
-from .engine import Deadline, calculate_deadlines
+from .engine import calculate_deadlines
 
 
 class DeadlineRequestSerializer(serializers.Serializer):
@@ -56,7 +57,6 @@ class CalculateDeadlinesView(APIView):
         saved_deadlines = []
         
         # Save deadlines if requested and feature is enabled
-        print(f"DEBUG: save_deadlines={payload.get('save_deadlines')}, matter_id={payload.get('matter_id')}, feature_enabled={getattr(settings, 'FEATURE_CASE_TRACKER', False)}")
         if (payload.get("save_deadlines") and 
             payload.get("matter_id") and 
             getattr(settings, 'FEATURE_CASE_TRACKER', False)):

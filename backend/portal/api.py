@@ -1,4 +1,5 @@
 """Portal routing."""
+
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
@@ -19,5 +20,7 @@ router.register("share-links", ShareLinkViewSet, basename="share-link")
 router.register("document-comments", DocumentCommentViewSet, basename="document-comment")
 
 urlpatterns = [
-    path("share-links/resolve/<str:token>/", ShareLinkResolveView.as_view(), name="sharelink-resolve"),
+    path(
+        "share-links/resolve/<str:token>/", ShareLinkResolveView.as_view(), name="sharelink-resolve"
+    ),
 ]
