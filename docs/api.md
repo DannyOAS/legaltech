@@ -53,6 +53,7 @@ Base URL: `/api/v1/`
 - `/users/` GET/POST – manage users (tenant-scoped)
 - `/users/me/` GET – current user profile
 - `/roles/` GET/POST
+- `/permissions/` GET – enumerate available permission codenames for role management
 - `/invitations/` GET/POST/DELETE
 - `/invitations/{id}/resend/` POST – resend invitation email
 - `/api-tokens/` GET/POST/DELETE
@@ -89,6 +90,15 @@ Base URL: `/api/v1/`
 - `/client/invoices/` GET – invoices tied to the authenticated client user
 
 > Client-role accounts are limited to the `/client/...` endpoints; organization management, billing, and portal CRUD APIs return `403` for client users.
+
+## RBAC & Row-Level Rules
+
+- Roles map to permission codenames (e.g., `matter.view`, `invoice.manage`, `org.manage_roles`). Built-in roles (Admin, Lawyer, Paralegal, Client, Operations Admin, IT/Security, Accounting/Finance) follow the security matrix described in `docs/security.md`.
+- `/roles/` supports POST/PATCH with a `permissions` array to define custom roles. Use `/permissions/` to render the checkbox matrix in the Org Settings UI.
+- All list/detail endpoints are scoped to `organization_id` via middleware. Additional row-level filters ensure:
+  - Lawyers and paralegals only see matters/documents/invoices they are assigned to (via lead lawyer or `MatterAccess`).
+  - Accounting roles can access billing data but not matter or document records.
+  - Clients are confined to `/client/...` routes and only see documents marked `client_visible=true`.
 
 ## Integrations
 

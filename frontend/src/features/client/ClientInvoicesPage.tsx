@@ -1,6 +1,7 @@
 import { ChangeEvent, useMemo, useState } from "react";
 import useSWR from "swr";
 import Button from "../../components/ui/Button";
+import Skeleton from "../../components/ui/Skeleton";
 import { api, ApiError } from "../../lib/api";
 
 interface ClientInvoice {
@@ -39,7 +40,7 @@ const ClientInvoicesPage = () => {
     }
     return `/client/invoices/?${params.toString()}`;
   }, [offset, searchValue]);
-  const { data } = useSWR<PaginatedResponse<ClientInvoice>>(key, fetcher);
+  const { data, isLoading } = useSWR<PaginatedResponse<ClientInvoice>>(key, fetcher);
   const invoices = data?.results ?? [];
   const totalInvoices = data?.count ?? 0;
   const hasPrevious = page > 0;

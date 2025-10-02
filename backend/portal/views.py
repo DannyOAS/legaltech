@@ -1,18 +1,18 @@
 """Portal API views."""
+
 from __future__ import annotations
 
 import secrets
-from datetime import timedelta
 
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import PermissionRequirement, has_permission, restrict_related_queryset
 from config.tenancy import OrganizationModelViewSet
-from services.audit.logging import audit_action
 from notifications.service import send_notification
+from services.audit.logging import audit_action
 from services.notifications.email import send_document_uploaded_email, send_portal_message_email
 from services.storage.presign import generate_get_url, generate_put_url
 from services.storage.virus_scan import ScanRequest, schedule_scan
@@ -22,8 +22,8 @@ from .serializers import (
     DocumentCommentSerializer,
     DocumentSerializer,
     DocumentUploadSerializer,
-    DocumentVersionUploadSerializer,
     DocumentVersionSerializer,
+    DocumentVersionUploadSerializer,
     MessageSerializer,
     MessageThreadSerializer,
     ShareLinkSerializer,
@@ -33,13 +33,31 @@ from .serializers import (
 class DocumentViewSet(OrganizationModelViewSet):
     serializer_class = DocumentSerializer
     queryset = Document.objects.select_related("matter", "owner")
+    rbac_resource = "document"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["document.view"]),
+        "retrieve": PermissionRequirement(all=["document.view"]),
+        "create": PermissionRequirement(all=["document.manage"]),
+        "update": PermissionRequirement(all=["document.manage"]),
+        "partial_update": PermissionRequirement(all=["document.manage"]),
+        "destroy": PermissionRequirement(all=["document.manage"]),
+        "download": PermissionRequirement(all=["document.view"]),
+        "versions": PermissionRequirement(all=["document.view"]),
+        "upload_version": PermissionRequirement(all=["document.manage"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset()
+        return restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="document.view_all")
 
     def create(self, request, *args, **kwargs):
         if "Client" in request.user.roles.values_list("name", flat=True):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("Clients cannot upload documents")
-        upload_serializer = DocumentUploadSerializer(data=request.data, context={"request": request})
+        upload_serializer = DocumentUploadSerializer(
+            data=request.data, context={"request": request}
+        )
         upload_serializer.is_valid(raise_exception=True)
         payload = upload_serializer.validated_data
         matter = payload["matter"]
@@ -65,8 +83,17 @@ class DocumentViewSet(OrganizationModelViewSet):
             sha256=doc.sha256,
             uploaded_by=request.user,
         )
-        upload_url = generate_put_url(doc.organization_id, doc.s3_key, payload["mime"], payload["size"])
-        audit_action(request.organization_id, request.user.id, "portal.document.created", "document", str(doc.id), request)
+        upload_url = generate_put_url(
+            doc.organization_id, doc.s3_key, payload["mime"], payload["size"]
+        )
+        audit_action(
+            request.organization_id,
+            request.user.id,
+            "portal.document.created",
+            "document",
+            str(doc.id),
+            request,
+        )
         schedule_scan(
             ScanRequest(
                 organization_id=str(request.organization_id),
@@ -92,11 +119,19 @@ class DocumentViewSet(OrganizationModelViewSet):
                 matter_title=matter.title,
                 filename=payload["filename"],
             )
-        return Response({"document": DocumentSerializer(doc).data, "upload_url": upload_url}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"document": DocumentSerializer(doc).data, "upload_url": upload_url},
+            status=status.HTTP_201_CREATED,
+        )
 
     def perform_update(self, serializer):
         document = serializer.instance
         was_visible = document.client_visible
+        if "client_visible" in serializer.validated_data and serializer.validated_data["client_visible"] != was_visible:
+            if not has_permission(self.request.user, "document.manage_visibility"):
+                from rest_framework.exceptions import PermissionDenied
+
+                raise PermissionDenied("You cannot change client visibility")
         updated = serializer.save()
         if not was_visible and updated.client_visible:
             matter = updated.matter
@@ -122,9 +157,18 @@ class DocumentViewSet(OrganizationModelViewSet):
     def download(self, request, pk=None):
         document = self.get_object()
         if document.scan_status == "infected":
-            return Response({"detail": "Document blocked by virus scan."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "Document blocked by virus scan."}, status=status.HTTP_403_FORBIDDEN
+            )
         url = generate_get_url(document.organization_id, document.s3_key)
-        audit_action(request.organization_id, request.user.id, "portal.document.downloaded", "document", str(document.id), request)
+        audit_action(
+            request.organization_id,
+            request.user.id,
+            "portal.document.downloaded",
+            "document",
+            str(document.id),
+            request,
+        )
         return Response({"url": url})
 
     @action(detail=True, methods=["get"], url_path="versions")
@@ -140,8 +184,12 @@ class DocumentViewSet(OrganizationModelViewSet):
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
         next_version = document.version + 1
-        new_key = f"{request.organization_id}/documents/{secrets.token_hex(8)}-{payload['filename']}"
-        upload_url = generate_put_url(document.organization_id, new_key, payload["mime"], payload["size"])
+        new_key = (
+            f"{request.organization_id}/documents/{secrets.token_hex(8)}-{payload['filename']}"
+        )
+        upload_url = generate_put_url(
+            document.organization_id, new_key, payload["mime"], payload["size"]
+        )
         document.filename = payload["filename"]
         document.mime = payload["mime"]
         document.size = payload["size"]
@@ -183,16 +231,33 @@ class DocumentViewSet(OrganizationModelViewSet):
                 sha256=document.sha256,
             )
         )
-        audit_action(request.organization_id, request.user.id, "portal.document.versioned", "document", str(document.id), request)
+        audit_action(
+            request.organization_id,
+            request.user.id,
+            "portal.document.versioned",
+            "document",
+            str(document.id),
+            request,
+        )
         return Response({"upload_url": upload_url})
 
 
 class MessageThreadViewSet(OrganizationModelViewSet):
     serializer_class = MessageThreadSerializer
     queryset = MessageThread.objects.select_related("matter")
+    rbac_resource = "messaging"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["messaging.use"]),
+        "retrieve": PermissionRequirement(all=["messaging.use"]),
+        "create": PermissionRequirement(all=["messaging.use"]),
+        "update": PermissionRequirement(all=["messaging.use"]),
+        "partial_update": PermissionRequirement(all=["messaging.use"]),
+        "destroy": PermissionRequirement(all=["messaging.use"]),
+    }
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("matter")
+        queryset = restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="matter.view_all")
         client_profile = getattr(self.request.user, "client_profile", None)
         matter_id = self.request.query_params.get("matter")
         if matter_id:
@@ -209,15 +274,32 @@ class MessageThreadViewSet(OrganizationModelViewSet):
 
             raise PermissionDenied("Matter not accessible")
         thread = serializer.save(organization=self.request.user.organization)
-        audit_action(self.request.organization_id, self.request.user.id, "portal.thread.created", "thread", str(thread.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "portal.thread.created",
+            "thread",
+            str(thread.id),
+            self.request,
+        )
 
 
 class DocumentCommentViewSet(OrganizationModelViewSet):
     serializer_class = DocumentCommentSerializer
     queryset = DocumentComment.objects.select_related("document", "author")
+    rbac_resource = "document"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["document.view"]),
+        "retrieve": PermissionRequirement(all=["document.view"]),
+        "create": PermissionRequirement(all=["document.manage"]),
+        "update": PermissionRequirement(all=["document.manage"]),
+        "partial_update": PermissionRequirement(all=["document.manage"]),
+        "destroy": PermissionRequirement(all=["document.manage"]),
+    }
 
     def get_queryset(self):  # type: ignore[override]
         queryset = super().get_queryset().select_related("document", "author")
+        queryset = restrict_related_queryset(queryset, self.request.user, related_field="document__matter", bypass_permission="document.view_all")
         document_id = self.request.query_params.get("document")
         if document_id:
             queryset = queryset.filter(document_id=document_id)
@@ -226,7 +308,9 @@ class DocumentCommentViewSet(OrganizationModelViewSet):
     def perform_create(self, serializer):
         document_id = self.request.data.get("document")
         try:
-            document = Document.objects.get(id=document_id, organization=self.request.user.organization)
+            document = Document.objects.get(
+                id=document_id, organization=self.request.user.organization
+            )
         except Document.DoesNotExist as exc:
             from rest_framework.exceptions import ValidationError
 
@@ -249,6 +333,15 @@ class DocumentCommentViewSet(OrganizationModelViewSet):
 class MessageViewSet(OrganizationModelViewSet):
     serializer_class = MessageSerializer
     queryset = Message.objects.select_related("thread")
+    rbac_resource = "messaging"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["messaging.use"]),
+        "retrieve": PermissionRequirement(all=["messaging.use"]),
+        "create": PermissionRequirement(all=["messaging.use"]),
+        "update": PermissionRequirement(all=["messaging.use"]),
+        "partial_update": PermissionRequirement(all=["messaging.use"]),
+        "destroy": PermissionRequirement(all=["messaging.use"]),
+    }
 
     def perform_create(self, serializer):
         client_profile = getattr(self.request.user, "client_profile", None)
@@ -264,10 +357,19 @@ class MessageViewSet(OrganizationModelViewSet):
                 sender_user=None,
             )
         else:
-            message = serializer.save(organization=self.request.user.organization, sender_user=self.request.user)
+            message = serializer.save(
+                organization=self.request.user.organization, sender_user=self.request.user
+            )
         if attachments := serializer.validated_data.get("attachments"):
             message.attachments.set(attachments)
-        audit_action(self.request.organization_id, self.request.user.id, "portal.message.sent", "message", str(message.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "portal.message.sent",
+            "message",
+            str(message.id),
+            self.request,
+        )
         thread = message.thread
         recipient = None
         if thread and thread.matter:
@@ -291,6 +393,7 @@ class MessageViewSet(OrganizationModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("thread", "thread__matter")
+        queryset = restrict_related_queryset(queryset, self.request.user, related_field="thread__matter", bypass_permission="matter.view_all")
         client_profile = getattr(self.request.user, "client_profile", None)
         thread_id = self.request.query_params.get("thread")
         if thread_id:
@@ -303,13 +406,29 @@ class MessageViewSet(OrganizationModelViewSet):
 class ShareLinkViewSet(OrganizationModelViewSet):
     serializer_class = ShareLinkSerializer
     queryset = ShareLink.objects.select_related("document")
+    rbac_resource = "document"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["document.view"]),
+        "retrieve": PermissionRequirement(all=["document.view"]),
+        "create": PermissionRequirement(all=["document.manage"]),
+        "update": PermissionRequirement(all=["document.manage"]),
+        "partial_update": PermissionRequirement(all=["document.manage"]),
+        "destroy": PermissionRequirement(all=["document.manage"]),
+    }
 
     def perform_create(self, serializer):
         link = serializer.save(
             organization=self.request.user.organization,
             token=secrets.token_urlsafe(24),
         )
-        audit_action(self.request.organization_id, self.request.user.id, "portal.sharelink.created", "share_link", str(link.id), self.request)
+        audit_action(
+            self.request.organization_id,
+            self.request.user.id,
+            "portal.sharelink.created",
+            "share_link",
+            str(link.id),
+            self.request,
+        )
 
 
 class ShareLinkResolveView(APIView):
@@ -325,5 +444,12 @@ class ShareLinkResolveView(APIView):
         url = generate_get_url(link.document.organization_id, link.document.s3_key)
         if link.one_time:
             link.delete()
-        audit_action(link.document.organization_id, None, "portal.sharelink.accessed", "share_link", str(link.id), request)
+        audit_action(
+            link.document.organization_id,
+            None,
+            "portal.sharelink.accessed",
+            "share_link",
+            str(link.id),
+            request,
+        )
         return Response({"url": url})

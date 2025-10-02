@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Button from "../../components/ui/Button";
 import InviteUserModal from "./InviteUserModal";
@@ -28,6 +28,15 @@ interface PaginatedResponse<T> {
 interface RoleOption {
   id: string;
   name: string;
+  permissions: string[];
+  is_custom: boolean;
+}
+
+interface PermissionOption {
+  id: string;
+  codename: string;
+  label: string;
+  description: string;
 }
 
 interface ClientOption {
@@ -52,6 +61,7 @@ const fetcher = <T,>(url: string) => api.get<T>(url);
 
 const OrgSettingsPage = () => {
   const { user, refreshUser } = useAuth();
+  const toast = useToast();
   const { data: settings } = useSWR<Settings>("/settings/", fetcher);
   const organizationId = settings ? settings.organization_id : null;
   const {
@@ -59,12 +69,26 @@ const OrgSettingsPage = () => {
     error: orgError,
     isLoading: isOrgLoading,
   } = useSWR<Organization>(organizationId ? `/org/${organizationId}/` : null, fetcher);
+
+  const {
+    data: rolesData,
+    mutate: mutateRoles,
+  } = useSWR<PaginatedResponse<RoleOption>>("/roles/", fetcher);
+  const { data: permissionOptions } = useSWR<PermissionOption[]>("/permissions/", fetcher);
+
   const [mfaStatus, setMfaStatus] = useState<string | null>(null);
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
-  const toast = useToast();
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"general" | "roles">("general");
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const [selectedRolePermissions, setSelectedRolePermissions] = useState<Set<string>>(new Set());
+  const [pendingPermissionId, setPendingPermissionId] = useState<string | null>(null);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRolePermissions, setNewRolePermissions] = useState<Set<string>>(new Set());
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
 
-  const { data: rolesData } = useSWR<PaginatedResponse<RoleOption>>("/roles/", fetcher);
   const inviteClientsKey = useMemo(() => (isInviteOpen ? "/clients/?limit=100" : null), [isInviteOpen]);
   const { data: clientsData, isLoading: isClientsLoading } = useSWR<PaginatedResponse<ClientOption>>(inviteClientsKey, fetcher);
   const inviteListKey = useMemo(() => "/invitations/?limit=100&status=pending", []);
@@ -74,15 +98,47 @@ const OrgSettingsPage = () => {
     isLoading: isInvitesLoading,
   } = useSWR<PaginatedResponse<Invitation>>(inviteListKey, fetcher);
 
-  const [resendingId, setResendingId] = useState<string | null>(null);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-
   const invites = invitesData?.results ?? [];
+  const roles = rolesData?.results ?? [];
+  const permissions = permissionOptions ?? [];
+
+  useEffect(() => {
+    if (!selectedRoleId && roles.length > 0) {
+      setSelectedRoleId(roles[0].id);
+    }
+  }, [roles, selectedRoleId]);
+
+  const selectedRole = useMemo(
+    () => roles.find((role) => role.id === selectedRoleId) ?? null,
+    [roles, selectedRoleId],
+  );
+
+  useEffect(() => {
+    if (selectedRole) {
+      setSelectedRolePermissions(new Set(selectedRole.permissions));
+    }
+  }, [selectedRole?.id]);
+
   const roleNameById = useMemo(() => {
     const map = new Map<string, string>();
-    rolesData?.results.forEach((role) => map.set(role.id, role.name));
+    roles.forEach((role) => map.set(role.id, role.name));
     return map;
-  }, [rolesData]);
+  }, [roles]);
+
+  const groupedPermissions = useMemo(() => {
+    const map = new Map<string, PermissionOption[]>();
+    permissions.forEach((permission) => {
+      const [group] = permission.codename.split(".");
+      if (!map.has(group)) {
+        map.set(group, []);
+      }
+      map.get(group)!.push(permission);
+    });
+    return Array.from(map.entries()).map(([group, perms]) => ({
+      group,
+      permissions: perms.sort((a, b) => a.label.localeCompare(b.label)),
+    }));
+  }, [permissions]);
 
   const handleResend = async (invitation: Invitation) => {
     setResendingId(invitation.id);
@@ -91,7 +147,10 @@ const OrgSettingsPage = () => {
       toast.success("Invitation resent", `${invitation.email} will receive a new email.`);
       await mutateInvites();
     } catch (error) {
-      toast.error("Unable to resend invite", error instanceof ApiError ? error.payload.detail ?? "Try again later." : "Unexpected error");
+      toast.error(
+        "Unable to resend invite",
+        error instanceof ApiError ? error.payload.detail ?? "Try again later." : "Unexpected error",
+      );
     } finally {
       setResendingId(null);
     }
@@ -104,48 +163,224 @@ const OrgSettingsPage = () => {
       toast.info("Invitation revoked", `${invitation.email} can no longer use the invite link.`);
       await mutateInvites();
     } catch (error) {
-      toast.error("Unable to revoke invite", error instanceof ApiError ? error.payload.detail ?? "Try again later." : "Unexpected error");
+      toast.error(
+        "Unable to revoke invite",
+        error instanceof ApiError ? error.payload.detail ?? "Try again later." : "Unexpected error",
+      );
     } finally {
       setRevokingId(null);
     }
   };
 
+  const handleToggleRolePermission = async (permissionId: string, enabled: boolean) => {
+    if (!selectedRole) {
+      return;
+    }
+    setPendingPermissionId(permissionId);
+    const updated = new Set(selectedRolePermissions);
+    if (enabled) {
+      updated.add(permissionId);
+    } else {
+      updated.delete(permissionId);
+    }
+    setSelectedRolePermissions(new Set(updated));
+    try {
+      await api.patch(`/roles/${selectedRole.id}/`, {
+        permissions: Array.from(updated),
+      });
+      toast.success("Role updated", `${selectedRole.name} permissions saved.`);
+      await mutateRoles();
+    } catch (error) {
+      toast.error(
+        "Unable to update permissions",
+        error instanceof ApiError ? error.payload.detail ?? "Please try again." : "Unexpected error",
+      );
+      setSelectedRolePermissions(new Set(selectedRole.permissions));
+    } finally {
+      setPendingPermissionId(null);
+    }
+  };
+
+  const handleToggleNewRolePermission = (permissionId: string, enabled: boolean) => {
+    setNewRolePermissions((current) => {
+      const next = new Set(current);
+      if (enabled) {
+        next.add(permissionId);
+      } else {
+        next.delete(permissionId);
+      }
+      return next;
+    });
+  };
+
+  const handleCreateRole = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newRoleName.trim()) {
+      toast.error("Role name required", "Please provide a name for the new role.");
+      return;
+    }
+    setIsCreatingRole(true);
+    try {
+      await api.post("/roles/", {
+        name: newRoleName.trim(),
+        permissions: Array.from(newRolePermissions),
+      });
+      toast.success("Role created", `${newRoleName.trim()} is ready to assign.`);
+      setNewRoleName("");
+      setNewRolePermissions(new Set());
+      await mutateRoles();
+    } catch (error) {
+      toast.error(
+        "Unable to create role",
+        error instanceof ApiError ? error.payload.detail ?? "Please try again later." : "Unexpected error",
+      );
+    } finally {
+      setIsCreatingRole(false);
+    }
+  };
+
+  const renderPermissionGroup = (
+    permissionsGroup: { group: string; permissions: PermissionOption[] },
+    selectedSet: Set<string>,
+    disabled: boolean,
+    onToggle: (permissionId: string, enabled: boolean) => void,
+    trackPending = true,
+  ) => (
+    <div key={permissionsGroup.group} className="rounded border border-slate-200 p-4">
+      <h4 className="text-sm font-semibold capitalize text-slate-600">
+        {permissionsGroup.group.replace(/-/g, " ")}
+      </h4>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        {permissionsGroup.permissions.map((permission) => {
+          const checked = selectedSet.has(permission.id);
+          return (
+            <label
+              key={permission.id}
+              className={`flex items-start gap-2 text-sm ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+            >
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={checked}
+                disabled={disabled || (trackPending && pendingPermissionId === permission.id)}
+                onChange={(event) => onToggle(permission.id, event.target.checked)}
+              />
+              <span>
+                <span className="font-medium text-slate-700">{permission.label}</span>
+                <span className="block text-xs text-slate-500">{permission.description}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <section className="rounded bg-white p-6 shadow">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-700">Team & Client Access</h2>
-            <p className="text-sm text-slate-500">Send invitations to staff or clients. Invitations expire after 72 hours.</p>
-          </div>
-          <Button className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}>Invite User</Button>
-        </div>
-        <div className="mt-6">
-          <div className="hidden overflow-x-auto md:block">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Email</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Role</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Expires</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Last Sent</th>
-                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+      <div className="flex flex-wrap gap-3">
+        {([
+          { key: "general", label: "General" },
+          { key: "roles", label: "Roles & Permissions" },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`rounded px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab.key
+                ? "bg-primary-600 text-white shadow"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "general" && (
+        <section className="space-y-6">
+          <section className="rounded bg-white p-6 shadow">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-700">Team & Client Access</h2>
+                <p className="text-sm text-slate-500">Send invitations to staff or clients. Invitations expire after 72 hours.</p>
+              </div>
+              <Button className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
+                Invite User
+              </Button>
+            </div>
+            <div className="mt-6">
+              <div className="hidden overflow-x-auto md:block">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600">Email</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600">Role</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600">Expires</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-600">Last Sent</th>
+                      <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {isInvitesLoading ? (
+                      <tr>
+                        <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
+                          Loading invitations...
+                        </td>
+                      </tr>
+                    ) : invites.length === 0 ? (
+                      <tr>
+                        <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
+                          No pending invitations.
+                        </td>
+                      </tr>
+                    ) : (
+                      invites.map((invitation) => {
+                        const roleName = roleNameById.get(invitation.role) ?? "—";
+                        const expires = new Date(invitation.expires_at).toLocaleString();
+                        const lastSent = invitation.last_sent_at ? new Date(invitation.last_sent_at).toLocaleString() : "—";
+                        const isCompleted = invitation.status !== "pending";
+                        return (
+                          <tr key={invitation.id}>
+                            <td className="px-3 py-2 text-slate-700">{invitation.email}</td>
+                            <td className="px-3 py-2 text-slate-600">{roleName}</td>
+                            <td className="px-3 py-2 capitalize text-slate-600">{invitation.status}</td>
+                            <td className="px-3 py-2 text-slate-500">{expires}</td>
+                            <td className="px-3 py-2 text-slate-500">{lastSent}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => handleResend(invitation)}
+                                  disabled={isCompleted || resendingId === invitation.id}
+                                >
+                                  {resendingId === invitation.id ? "Resending…" : "Resend"}
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => handleRevoke(invitation)}
+                                  disabled={revokingId === invitation.id}
+                                >
+                                  {revokingId === invitation.id ? "Revoking…" : "Revoke"}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-3 text-sm md:hidden">
                 {isInvitesLoading ? (
-                  <tr>
-                    <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
-                      Loading invitations...
-                    </td>
-                  </tr>
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-500">Loading invitations...</div>
                 ) : invites.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-3 text-center text-slate-500" colSpan={6}>
-                      No pending invitations.
-                    </td>
-                  </tr>
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-500">No pending invitations.</div>
                 ) : (
                   invites.map((invitation) => {
                     const roleName = roleNameById.get(invitation.role) ?? "—";
@@ -153,199 +388,244 @@ const OrgSettingsPage = () => {
                     const lastSent = invitation.last_sent_at ? new Date(invitation.last_sent_at).toLocaleString() : "—";
                     const isCompleted = invitation.status !== "pending";
                     return (
-                      <tr key={invitation.id}>
-                        <td className="px-3 py-2 text-slate-700">{invitation.email}</td>
-                        <td className="px-3 py-2 text-slate-600">{roleName}</td>
-                        <td className="px-3 py-2 capitalize text-slate-600">{invitation.status}</td>
-                        <td className="px-3 py-2 text-slate-500">{expires}</td>
-                        <td className="px-3 py-2 text-slate-500">{lastSent}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleResend(invitation)}
-                              disabled={isCompleted || resendingId === invitation.id}
-                            >
-                              {resendingId === invitation.id ? "Resending…" : "Resend"}
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleRevoke(invitation)}
-                              disabled={revokingId === invitation.id}
-                            >
-                              {revokingId === invitation.id ? "Revoking…" : "Revoke"}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                      <div key={invitation.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium text-slate-900">{invitation.email}</span>
+                          <span className="text-xs uppercase tracking-wide text-slate-500">{roleName}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                          <span className="rounded bg-slate-100 px-2 py-1 capitalize text-slate-700">Status: {invitation.status}</span>
+                          <span className="rounded bg-slate-100 px-2 py-1">Expires {expires}</span>
+                          <span className="rounded bg-slate-100 px-2 py-1">Last sent {lastSent}</span>
+                        </div>
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="w-full sm:flex-1"
+                            onClick={() => handleResend(invitation)}
+                            disabled={isCompleted || resendingId === invitation.id}
+                          >
+                            {resendingId === invitation.id ? "Resending…" : "Resend"}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            className="w-full sm:flex-1"
+                            onClick={() => handleRevoke(invitation)}
+                            disabled={revokingId === invitation.id}
+                          >
+                            {revokingId === invitation.id ? "Revoking…" : "Revoke"}
+                          </Button>
+                        </div>
+                      </div>
                     );
                   })
                 )}
-              </tbody>
-            </table>
-          </div>
-          <div className="space-y-3 text-sm md:hidden">
-            {isInvitesLoading ? (
-              <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-500">Loading invitations...</div>
-            ) : invites.length === 0 ? (
-              <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-500">No pending invitations.</div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded bg-white p-6 shadow">
+            <h2 className="text-lg font-semibold text-slate-700">Organization Profile</h2>
+            {!settings ? (
+              <p className="mt-4 text-sm text-slate-500">Loading...</p>
+            ) : !organizationId ? (
+              <p className="mt-4 text-sm text-red-600">Organization information is not available.</p>
+            ) : isOrgLoading ? (
+              <p className="mt-4 text-sm text-slate-500">Loading...</p>
+            ) : org ? (
+              <dl className="mt-4 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
+                <div>
+                  <dt className="font-medium text-slate-500">Name</dt>
+                  <dd>{org.name}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-500">Region</dt>
+                  <dd>{org.region}</dd>
+                </div>
+              </dl>
+            ) : orgError ? (
+              <p className="mt-4 text-sm text-red-600">Unable to load organization details.</p>
             ) : (
-              invites.map((invitation) => {
-                const roleName = roleNameById.get(invitation.role) ?? "—";
-                const expires = new Date(invitation.expires_at).toLocaleString();
-                const lastSent = invitation.last_sent_at ? new Date(invitation.last_sent_at).toLocaleString() : "—";
-                const isCompleted = invitation.status !== "pending";
-                return (
-                  <div key={invitation.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-slate-900">{invitation.email}</span>
-                      <span className="text-xs uppercase tracking-wide text-slate-500">{roleName}</span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                      <span className="rounded bg-slate-100 px-2 py-1 capitalize text-slate-700">Status: {invitation.status}</span>
-                      <span className="rounded bg-slate-100 px-2 py-1">Expires {expires}</span>
-                      <span className="rounded bg-slate-100 px-2 py-1">Last sent {lastSent}</span>
-                    </div>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="w-full sm:flex-1"
-                        onClick={() => handleResend(invitation)}
-                        disabled={isCompleted || resendingId === invitation.id}
-                      >
-                        {resendingId === invitation.id ? "Resending…" : "Resend"}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        className="w-full sm:flex-1"
-                        onClick={() => handleRevoke(invitation)}
-                        disabled={revokingId === invitation.id}
-                      >
-                        {revokingId === invitation.id ? "Revoking…" : "Revoke"}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })
+              <p className="mt-4 text-sm text-slate-500">Loading...</p>
             )}
-          </div>
-        </div>
-      </section>
-      <section className="rounded bg-white p-6 shadow">
-        <h2 className="text-lg font-semibold text-slate-700">Organization Profile</h2>
-        {!settings ? (
-          <p className="mt-4 text-sm text-slate-500">Loading...</p>
-        ) : !organizationId ? (
-          <p className="mt-4 text-sm text-red-600">Organization information is not available.</p>
-        ) : isOrgLoading ? (
-          <p className="mt-4 text-sm text-slate-500">Loading...</p>
-        ) : org ? (
-          <dl className="mt-4 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
-            <div>
-              <dt className="font-medium text-slate-500">Name</dt>
-              <dd>{org.name}</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-slate-500">Region</dt>
-              <dd>{org.region}</dd>
-            </div>
-          </dl>
-        ) : orgError ? (
-          <p className="mt-4 text-sm text-red-600">Unable to load organization details.</p>
-        ) : (
-          <p className="mt-4 text-sm text-slate-500">Loading...</p>
-        )}
-      </section>
-      <section className="rounded bg-white p-6 shadow">
-        <h2 className="text-lg font-semibold text-slate-700">Security Features</h2>
-        <ul className="mt-4 space-y-2 text-sm text-slate-600">
-          {settings ? (
-            Object.entries(settings.features).map(([name, enabled]) => (
-              <li key={name} className="flex items-center justify-between">
-                <span className="capitalize">{name.replace(/_/g, " ")}</span>
-                <span className={`text-xs ${enabled ? "text-emerald-600" : "text-slate-400"}`}>
-                  {enabled ? "enabled" : "disabled"}
-                </span>
-              </li>
-            ))
-          ) : (
-            <li>Loading...</li>
+          </section>
+
+          <section className="rounded bg-white p-6 shadow">
+            <h2 className="text-lg font-semibold text-slate-700">Security Features</h2>
+            <ul className="mt-4 space-y-2 text-sm text-slate-600">
+              {settings ? (
+                Object.entries(settings.features).map(([name, enabled]) => (
+                  <li key={name} className="flex items-center justify-between">
+                    <span className="capitalize">{name.replace(/_/g, " ")}</span>
+                    <span className={`text-xs ${enabled ? "text-emerald-600" : "text-slate-400"}`}>
+                      {enabled ? "enabled" : "disabled"}
+                    </span>
+                  </li>
+                ))
+              ) : (
+                <li>Loading...</li>
+              )}
+            </ul>
+          </section>
+
+          {settings && (
+            <section className="rounded bg-white p-6 shadow text-sm text-slate-600">
+              <h2 className="text-lg font-semibold text-slate-700">Data Residency</h2>
+              <p className="mt-2">Storage bucket: {settings.storage_bucket}</p>
+              <p>Canadian region: {settings.ca_region}</p>
+            </section>
           )}
-        </ul>
-      </section>
-      {settings && (
-        <section className="rounded bg-white p-6 shadow text-sm text-slate-600">
-          <h2 className="text-lg font-semibold text-slate-700">Data Residency</h2>
-          <p className="mt-2">Storage bucket: {settings.storage_bucket}</p>
-          <p>Canadian region: {settings.ca_region}</p>
+
+          <section className="rounded bg-white p-6 shadow text-sm text-slate-600">
+            <h2 className="text-lg font-semibold text-slate-700">Multi-Factor Authentication</h2>
+            <p className="mt-2 text-slate-500">
+              Protect your account with a time-based one-time password (TOTP) authenticator.
+            </p>
+
+            {user?.mfa_enabled ? (
+              <div className="mt-4">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-sm font-medium text-emerald-700">MFA Enabled</span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Your account is protected with two-factor authentication.
+                </p>
+                <button
+                  onClick={() => {
+                    setMfaStatus(null);
+                    setIsMfaModalOpen(true);
+                  }}
+                  className="mt-3 rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  type="button"
+                >
+                  Reset MFA
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
+                  <span className="text-sm font-medium text-amber-700">MFA Not Set Up</span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {user?.roles?.includes("Client")
+                    ? "Optional: Add extra security to your account."
+                    : "Required: Staff accounts must enable MFA for Ontario compliance."}
+                </p>
+                <button
+                  onClick={() => {
+                    setMfaStatus(null);
+                    setIsMfaModalOpen(true);
+                  }}
+                  className={`mt-3 rounded px-3 py-2 text-sm text-white ${
+                    user?.roles?.includes("Client")
+                      ? "bg-primary-600 hover:bg-primary-500"
+                      : "bg-amber-600 hover:bg-amber-500"
+                  }`}
+                  type="button"
+                >
+                  Set Up MFA
+                </button>
+              </div>
+            )}
+
+            {mfaStatus && <p className="mt-3 text-sm text-emerald-600">{mfaStatus}</p>}
+          </section>
         </section>
       )}
-      <section className="rounded bg-white p-6 shadow text-sm text-slate-600">
-        <h2 className="text-lg font-semibold text-slate-700">Multi-Factor Authentication</h2>
-        <p className="mt-2 text-slate-500">
-          Protect your account with a time-based one-time password (TOTP) authenticator.
-        </p>
-        
-        {user?.mfa_enabled ? (
-          <div className="mt-4">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-              <span className="text-sm font-medium text-emerald-700">MFA Enabled</span>
+
+      {activeTab === "roles" && (
+        <section className="space-y-6 rounded bg-white p-6 shadow">
+          <div className="grid gap-6 lg:grid-cols-[260px,1fr]">
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-slate-700">Roles</h2>
+              <p className="text-sm text-slate-500">Select a role to review or update its permissions.</p>
+              <div className="space-y-2">
+                {roles.map((role) => (
+                  <button
+                    key={role.id}
+                    type="button"
+                    className={`w-full rounded border px-3 py-2 text-left text-sm transition ${
+                      role.id === selectedRoleId
+                        ? "border-primary-500 bg-primary-50 text-primary-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-primary-200"
+                    }`}
+                    onClick={() => setSelectedRoleId(role.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{role.name}</span>
+                      {!role.is_custom && (
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">System</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              Your account is protected with two-factor authentication.
-            </p>
-            <button
-              onClick={() => {
-                setMfaStatus(null);
-                setIsMfaModalOpen(true);
-              }}
-              className="mt-3 rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              type="button"
-            >
-              Reset MFA
-            </button>
-          </div>
-        ) : (
-          <div className="mt-4">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
-              <span className="text-sm font-medium text-amber-700">MFA Not Set Up</span>
+
+            <div className="space-y-4">
+              {selectedRole ? (
+                <>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-700">{selectedRole.name}</h3>
+                    <p className="text-sm text-slate-500">
+                      {selectedRole.is_custom
+                        ? "Enable or disable permissions for this custom role."
+                        : "System roles mirror compliance defaults and cannot be modified."}
+                    </p>
+                  </div>
+                  <div className="space-y-5">
+                    {groupedPermissions.map((group) =>
+                      renderPermissionGroup(group, selectedRolePermissions, !selectedRole.is_custom, handleToggleRolePermission),
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">Select a role to view its permissions.</p>
+              )}
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              {user?.roles?.includes("Client") 
-                ? "Optional: Add extra security to your account."
-                : "Required: Staff accounts must enable MFA for Ontario compliance."
-              }
-            </p>
-            <button
-              onClick={() => {
-                setMfaStatus(null);
-                setIsMfaModalOpen(true);
-              }}
-              className={`mt-3 rounded px-3 py-2 text-sm text-white ${
-                user?.roles?.includes("Client")
-                  ? "bg-primary-600 hover:bg-primary-500"
-                  : "bg-amber-600 hover:bg-amber-500"
-              }`}
-              type="button"
-            >
-              Set Up MFA
-            </button>
           </div>
-        )}
-        
-        {mfaStatus && <p className="mt-3 text-sm text-emerald-600">{mfaStatus}</p>}
-        {/* Errors handled within MFA modal */}
-      </section>
+
+          <div className="rounded border border-slate-200 p-4">
+            <h3 className="text-base font-semibold text-slate-700">Create Custom Role</h3>
+            <p className="text-sm text-slate-500">Define operational roles with tailored permissions.</p>
+            <form className="mt-4 space-y-4" onSubmit={handleCreateRole}>
+              <div>
+                <label className="block text-sm font-medium text-slate-600" htmlFor="new-role-name">
+                  Role name
+                </label>
+                <input
+                  id="new-role-name"
+                  type="text"
+                  value={newRoleName}
+                  onChange={(event) => setNewRoleName(event.target.value)}
+                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                  placeholder="e.g. Compliance Analyst"
+                  required
+                />
+              </div>
+              <div className="space-y-4">
+                {groupedPermissions.map((group) =>
+                  renderPermissionGroup(group, newRolePermissions, false, handleToggleNewRolePermission, false),
+                )}
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isCreatingRole}>
+                  {isCreatingRole ? "Creating…" : "Create Role"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </section>
+      )}
+
       <InviteUserModal
         isOpen={isInviteOpen}
         onClose={() => setInviteOpen(false)}
-        roles={rolesData?.results}
+        roles={roles}
         clients={clientsData?.results}
         isLoadingClients={isClientsLoading}
         onInvited={() => mutateInvites()}

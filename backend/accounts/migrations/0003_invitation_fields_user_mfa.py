@@ -1,6 +1,6 @@
+import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
-import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
@@ -24,12 +24,24 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="invitation",
             name="client",
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="invitations", to="matters.client"),
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="invitations",
+                to="matters.client",
+            ),
         ),
         migrations.AddField(
             model_name="invitation",
             name="invited_by",
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="sent_invitations", to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="sent_invitations",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
             model_name="invitation",
@@ -39,6 +51,10 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="invitation",
             name="status",
-            field=models.CharField(choices=[("pending", "Pending"), ("accepted", "Accepted"), ("expired", "Expired")], default="pending", max_length=16),
+            field=models.CharField(
+                choices=[("pending", "Pending"), ("accepted", "Accepted"), ("expired", "Expired")],
+                default="pending",
+                max_length=16,
+            ),
         ),
     ]

@@ -1,6 +1,6 @@
+import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
-import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
@@ -14,6 +14,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="client",
             name="portal_user",
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="client_profile", to=settings.AUTH_USER_MODEL),
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="client_profile",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

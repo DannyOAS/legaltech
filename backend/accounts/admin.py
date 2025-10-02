@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
-from .models import APIToken, Invitation, Organization, Role, User, UserRole
+from .models import APIToken, Invitation, Organization, Permission, Role, User, UserRole
 
 
 @admin.register(User)
@@ -14,7 +14,10 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (_("Personal info"), {"fields": ("first_name", "last_name", "organization")}),
-        (_("Permissions"), {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        (
+            _("Permissions"),
+            {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")},
+        ),
         (_("Important dates"), {"fields": ("last_login",)}),
     )
     add_fieldsets = (
@@ -51,6 +54,12 @@ class RoleAdmin(admin.ModelAdmin):
     list_display = ("name", "organization")
     list_filter = ("organization",)
     search_fields = ("name",)
+
+
+@admin.register(Permission)
+class PermissionAdmin(admin.ModelAdmin):
+    list_display = ("codename", "label")
+    search_fields = ("codename", "label")
 
 
 @admin.register(UserRole)

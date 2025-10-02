@@ -1,4 +1,5 @@
 """Helpers to emit notifications."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -32,10 +33,8 @@ def send_notification(
 
 
 def mark_all_read(*, organization_id: str, recipient_id: str) -> int:
-    return (
-        Notification.objects.filter(
-            organization_id=organization_id,
-            recipient_id=recipient_id,
-            read_at__isnull=True,
-        ).update(read_at=timezone.now())
-    )
+    return Notification.objects.filter(
+        organization_id=organization_id,
+        recipient_id=recipient_id,
+        read_at__isnull=True,
+    ).update(read_at=timezone.now())

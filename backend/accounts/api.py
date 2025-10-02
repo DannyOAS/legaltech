@@ -1,16 +1,18 @@
 """Routing helpers for account endpoints."""
+
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
     APITokenViewSet,
-    InvitationViewSet,
     InvitationAcceptView,
+    InvitationViewSet,
     LoginView,
     LogoutView,
     MFASetupView,
     MFAVerifyView,
     OrganizationViewSet,
+    PermissionViewSet,
     RefreshView,
     RoleViewSet,
     UserViewSet,
@@ -20,6 +22,7 @@ router = DefaultRouter()
 router.register("org", OrganizationViewSet, basename="org")
 router.register("users", UserViewSet, basename="user")
 router.register("roles", RoleViewSet, basename="role")
+router.register("permissions", PermissionViewSet, basename="permission")
 router.register("invitations", InvitationViewSet, basename="invitation")
 router.register("api-tokens", APITokenViewSet, basename="api-token")
 

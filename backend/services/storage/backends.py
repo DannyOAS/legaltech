@@ -1,4 +1,5 @@
 """Custom storage backend for documents."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

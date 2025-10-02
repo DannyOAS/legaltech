@@ -1,4 +1,5 @@
 """Custom middleware for tenancy context and security headers."""
+
 from __future__ import annotations
 
 from typing import Callable
@@ -16,7 +17,9 @@ class TenantContextMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        org_id = getattr(request, "tenant_org_id", None) or getattr(request.user, "organization_id", None)
+        org_id = getattr(request, "tenant_org_id", None) or getattr(
+            request.user, "organization_id", None
+        )
         request.organization_id = org_id
         audit_context.set_current_org(org_id)
         try:
@@ -25,5 +28,7 @@ class TenantContextMiddleware:
             audit_context.clear_current_org()
         if csp := getattr(settings, "CONTENT_SECURITY_POLICY", None):
             response["Content-Security-Policy"] = csp
-        response["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains" if not settings.DEBUG else "max-age=60"
+        response["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains" if not settings.DEBUG else "max-age=60"
+        )
         return response

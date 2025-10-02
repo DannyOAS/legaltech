@@ -1,4 +1,5 @@
 """Audit logging models."""
+
 from __future__ import annotations
 
 import uuid
@@ -16,7 +17,9 @@ class AuditEvent(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, related_name="audit_events", on_delete=models.CASCADE)
+    organization = models.ForeignKey(
+        Organization, related_name="audit_events", on_delete=models.CASCADE
+    )
     actor_id = models.UUIDField(null=True, blank=True)
     actor_type = models.CharField(max_length=20, choices=ACTOR_TYPES)
     action = models.CharField(max_length=120)

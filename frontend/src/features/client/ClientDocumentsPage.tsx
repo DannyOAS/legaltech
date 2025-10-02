@@ -1,5 +1,6 @@
 import { ChangeEvent, useMemo, useState } from "react";
 import useSWR from "swr";
+import Skeleton from "../../components/ui/Skeleton";
 import { api } from "../../lib/api";
 
 interface ClientDocument {
@@ -31,7 +32,7 @@ const ClientDocumentsPage = () => {
     }
     return `/client/documents/?${params.toString()}`;
   }, [offset, searchValue]);
-  const { data } = useSWR<PaginatedResponse<ClientDocument>>(key, fetcher);
+  const { data, isLoading } = useSWR<PaginatedResponse<ClientDocument>>(key, fetcher);
   const documents = data?.results ?? [];
   const totalDocuments = data?.count ?? 0;
   const hasPrevious = page > 0;
@@ -66,6 +67,23 @@ const ClientDocumentsPage = () => {
       resetStatusSoon();
     }
   };
+
+  const renderLoadingSkeleton = (rows = 6) => (
+    <ul className="mt-4 space-y-3 text-sm">
+      {Array.from({ length: rows }).map((_, index) => (
+        <li key={index} className="flex items-center justify-between rounded border border-slate-200 p-3">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <section className="space-y-6 rounded-lg bg-white p-6 shadow">

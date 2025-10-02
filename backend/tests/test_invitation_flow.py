@@ -2,7 +2,6 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from accounts.models import Invitation, Organization, Role, User, UserRole
-from accounts.views import InvitationAcceptView
 
 
 class InvitationAcceptTests(APITestCase):

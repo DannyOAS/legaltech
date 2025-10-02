@@ -1,4 +1,5 @@
 """Create demo data for local usage."""
+
 from __future__ import annotations
 
 import os
@@ -16,7 +17,7 @@ import django
 
 django.setup()
 
-from accounts.models import Invitation, Organization, Role, User, UserRole
+from accounts.models import Organization, Role, User, UserRole
 from billing.models import Expense, Invoice, Payment, TimeEntry
 from matters.models import Client, Matter
 from portal.models import Document, Message, MessageThread
@@ -24,12 +25,20 @@ from portal.models import Document, Message, MessageThread
 
 def run() -> None:
     org, _ = Organization.objects.get_or_create(name="Demo Law", region="ON")
-    roles = {name: Role.objects.get_or_create(name=name, organization=org)[0] for name in ["Owner", "Lawyer", "Assistant"]}
+    roles = {
+        name: Role.objects.get_or_create(name=name, organization=org)[0]
+        for name in ["Owner", "Lawyer", "Assistant"]
+    }
 
     users = {
         "owner": User.objects.get_or_create(
             email="owner@demo.law",
-            defaults={"first_name": "Olivia", "last_name": "Owner", "organization": org, "is_staff": True},
+            defaults={
+                "first_name": "Olivia",
+                "last_name": "Owner",
+                "organization": org,
+                "is_staff": True,
+            },
         )[0],
         "lawyer": User.objects.get_or_create(
             email="lawyer@demo.law",

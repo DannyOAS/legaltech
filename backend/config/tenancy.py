@@ -1,4 +1,5 @@
 """Helpers to enforce organization scoping across the API."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -7,7 +8,12 @@ from django.db.models import Model, QuerySet
 from django.http import HttpRequest
 from rest_framework import mixins, serializers, viewsets
 
-from accounts.permissions import IsNotClient, IsOrganizationMember
+from accounts.permissions import (
+    IsNotClient,
+    IsOrganizationMember,
+    PermissionRequirement,
+    RBACPermission,
+)
 
 
 class OrganizationScopedQuerySetMixin:
@@ -41,9 +47,35 @@ class OrganizationModelViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Generic viewset enforcing org scoping."""
+    """Generic viewset enforcing org scoping and RBAC permissions."""
 
-    permission_classes = [IsOrganizationMember, IsNotClient]
+    permission_classes = [IsOrganizationMember, IsNotClient, RBACPermission]
+    rbac_resource: str | None = None
+    rbac_permissions: dict[str, PermissionRequirement | list[str] | tuple[str, ...]] = {}
+
+    default_action_permission_map: dict[str, str] = {
+        "list": "view",
+        "retrieve": "view",
+        "create": "manage",
+        "update": "manage",
+        "partial_update": "manage",
+        "destroy": "manage",
+    }
+
+    def get_required_permissions(self) -> PermissionRequirement | list[str] | tuple[str, ...] | None:
+        action = getattr(self, "action", None)
+        if not action:
+            return None
+        if action in self.rbac_permissions:
+            return self.rbac_permissions[action]
+        resource = getattr(self, "rbac_resource", None)
+        if not resource:
+            return None
+        verb = self.default_action_permission_map.get(action)
+        if not verb:
+            return None
+        permission_code = f"{resource}.{verb}"
+        return [permission_code]
 
 
 def assert_object_org(obj: Model, request: HttpRequest) -> None:
@@ -58,7 +90,9 @@ def assert_object_org(obj: Model, request: HttpRequest) -> None:
 class OrganizationScopedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
     """Limit related selections to the requesting organization."""
 
-    def __init__(self, *args: Any, organization_field: str = "organization_id", **kwargs: Any) -> None:
+    def __init__(
+        self, *args: Any, organization_field: str = "organization_id", **kwargs: Any
+    ) -> None:
         self.organization_field = organization_field
         super().__init__(*args, **kwargs)
 

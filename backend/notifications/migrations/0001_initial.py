@@ -1,7 +1,8 @@
+import uuid
+
+import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
-import django.db.models.deletion
-import uuid
 
 
 class Migration(migrations.Migration):
@@ -16,7 +17,12 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Notification",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
                 ("notification_type", models.CharField(max_length=64)),
                 ("title", models.CharField(max_length=255)),
                 ("body", models.TextField(blank=True)),
@@ -25,8 +31,22 @@ class Migration(migrations.Migration):
                 ("related_object_type", models.CharField(blank=True, max_length=64)),
                 ("read_at", models.DateTimeField(blank=True, null=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
-                ("organization", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="notifications", to="accounts.organization")),
-                ("recipient", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="notifications", to=settings.AUTH_USER_MODEL)),
+                (
+                    "organization",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="notifications",
+                        to="accounts.organization",
+                    ),
+                ),
+                (
+                    "recipient",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="notifications",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
                 "ordering": ["-created_at"],
@@ -34,10 +54,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="notification",
-            index=models.Index(fields=["recipient", "read_at"], name="notification_recipient_read_idx"),
+            index=models.Index(
+                fields=["recipient", "read_at"], name="notification_recipient_read_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="notification",
-            index=models.Index(fields=["organization", "notification_type"], name="notification_org_type_idx"),
+            index=models.Index(
+                fields=["organization", "notification_type"], name="notification_org_type_idx"
+            ),
         ),
     ]

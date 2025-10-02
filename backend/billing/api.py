@@ -1,8 +1,15 @@
 """Billing routing."""
+
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import BillingSummaryView, ExpenseViewSet, InvoiceViewSet, PaymentViewSet, TimeEntryViewSet
+from .views import (
+    BillingSummaryView,
+    ExpenseViewSet,
+    InvoiceViewSet,
+    PaymentViewSet,
+    TimeEntryViewSet,
+)
 
 router = DefaultRouter()
 router.register("time-entries", TimeEntryViewSet, basename="time-entry")

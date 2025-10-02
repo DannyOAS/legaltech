@@ -14,5 +14,10 @@ export const ProtectedRoute = () => {
     return <Navigate to={target} replace />;
   }
 
+  const roles = user.roles ?? [];
+  if (roles.includes("Client") && !location.pathname.startsWith("/client")) {
+    return <Navigate to="/client/matters" replace />;
+  }
+
   return <Outlet />;
 };

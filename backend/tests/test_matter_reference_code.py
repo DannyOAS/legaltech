@@ -58,7 +58,11 @@ class MatterReferenceCodeGenerationTests(APITestCase):
 
     def test_manual_reference_code_respected(self):
         self.client_profile.refresh_from_db()
-        payload = {**self.payload, "client_id": str(self.client_profile.id), "reference_code": "CUSTOM-001"}
+        payload = {
+            **self.payload,
+            "client_id": str(self.client_profile.id),
+            "reference_code": "CUSTOM-001",
+        }
         response = self.client.post(self.url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(response.data["reference_code"], "CUSTOM-001")

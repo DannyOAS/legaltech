@@ -2,7 +2,7 @@ import { ChangeEvent, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useSWR from "swr";
 import Button from "../../components/ui/Button";
-import Spinner from "../../components/ui/Spinner";
+import Skeleton from "../../components/ui/Skeleton";
 import { api } from "../../lib/api";
 
 interface ClientMatter {
@@ -60,6 +60,45 @@ const ClientMattersPage = () => {
     }
   };
 
+  const renderLoadingSkeleton = (rows = 5) => (
+    <>
+      <div className="hidden md:block">
+        <div className="overflow-hidden rounded-lg border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <tbody className="divide-y divide-slate-100">
+              {Array.from({ length: rows }).map((_, index) => (
+                <tr key={index} className="bg-white">
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-32" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-48" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-32" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-36" /></td>
+                  <td className="px-3 py-3"><Skeleton className="h-4 w-20" /></td>
+                  <td className="px-3 py-3 text-right"><Skeleton className="ml-auto h-8 w-20" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="space-y-3 md:hidden">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div key={index} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-2 h-5 w-40" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <Skeleton className="mt-4 h-9 w-24" />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
   return (
     <section className="space-y-6 rounded-lg bg-white p-6 shadow">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -78,9 +117,7 @@ const ClientMattersPage = () => {
         />
       </div>
       {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Spinner size="lg" />
-        </div>
+        renderLoadingSkeleton()
       ) : matters.length === 0 ? (
         <p className="text-sm text-slate-500">No matters available yet.</p>
       ) : (

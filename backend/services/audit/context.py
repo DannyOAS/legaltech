@@ -1,9 +1,12 @@
 """Thread-local tenant context utilities."""
+
 from __future__ import annotations
 
 import contextvars
 
-_current_org: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_org", default=None)
+_current_org: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "current_org", default=None
+)
 
 
 def set_current_org(org_id: str | None) -> None:

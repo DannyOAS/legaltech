@@ -1,4 +1,5 @@
 """Serializers for audit events."""
+
 from rest_framework import serializers
 
 from .models import AuditEvent

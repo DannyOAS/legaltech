@@ -2,7 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
 import Button from "../../components/ui/Button";
-import Spinner from "../../components/ui/Spinner";
+import Skeleton from "../../components/ui/Skeleton";
 import { api, ApiError } from "../../lib/api";
 
 interface ClientMatter {
@@ -79,21 +79,25 @@ const ClientMatterDetailPage = () => {
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(docPage * PAGE_SIZE), matter: id });
     return `/client/documents/?${params.toString()}`;
   }, [id, docPage]);
-  const { data: documentsData } = useSWR<PaginatedResponse<ClientDocument>>(documentsKey, fetcher);
+  const { data: documentsData, isLoading: isLoadingDocuments } = useSWR<PaginatedResponse<ClientDocument>>(documentsKey, fetcher);
 
   const invoicesKey = useMemo(() => {
     if (!id) return null;
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(invoicePage * PAGE_SIZE), matter: id });
     return `/client/invoices/?${params.toString()}`;
   }, [id, invoicePage]);
-  const { data: invoicesData } = useSWR<PaginatedResponse<ClientInvoice>>(invoicesKey, fetcher);
+  const { data: invoicesData, isLoading: isLoadingInvoices } = useSWR<PaginatedResponse<ClientInvoice>>(invoicesKey, fetcher);
 
   const threadsKey = useMemo(() => {
     if (!id) return null;
     const params = new URLSearchParams({ limit: "10", matter: id });
     return `/threads/?${params.toString()}`;
   }, [id]);
-  const { data: threadsData, mutate: mutateThreads } = useSWR<PaginatedResponse<ClientThread>>(threadsKey, fetcher);
+  const {
+    data: threadsData,
+    mutate: mutateThreads,
+    isLoading: isLoadingThreads,
+  } = useSWR<PaginatedResponse<ClientThread>>(threadsKey, fetcher);
   const [creatingThread, setCreatingThread] = useState(false);
 
   const threads = threadsData?.results ?? [];
@@ -125,6 +129,43 @@ const ClientMatterDetailPage = () => {
 
   const resetStatusSoon = () => {
     window.setTimeout(() => setStatusMessage(null), 3000);
+  };
+
+  const handleCreateThread = async () => {
+    if (!id) return;
+    try {
+      setCreatingThread(true);
+      const response = await api.post<ClientThread>("/threads/", { matter: id });
+      await mutateThreads();
+      setSelectedThreadId(response.id);
+      setStatusMessage("Conversation started");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.payload.detail ?? "Unable to start conversation" : "Unable to start conversation";
+      setStatusMessage(message);
+    } finally {
+      setCreatingThread(false);
+      resetStatus();
+    }
+  };
+
+  const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedThreadId || !messageDraft.trim()) {
+      return;
+    }
+    try {
+      setSendingMessage(true);
+      await api.post("/messages/", { thread: selectedThreadId, body: messageDraft.trim() });
+      setMessageDraft("");
+      await mutateMessages();
+      setStatusMessage("Message sent");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.payload.detail ?? "Unable to send message" : "Unable to send message";
+      setStatusMessage(message);
+    } finally {
+      setSendingMessage(false);
+      resetStatus();
+    }
   };
 
   const handleDocumentDownload = async (doc: ClientDocument) => {
@@ -271,8 +312,24 @@ const ClientMatterDetailPage = () => {
           </button>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderInvoices = () => {
+    if (isLoadingInvoices && !invoices.length) {
+      return (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="rounded border border-slate-200 bg-white p-4 shadow-sm">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="mt-2 h-3 w-24" />
+              <Skeleton className="mt-2 h-3 w-20" />
+              <Skeleton className="mt-3 h-8 w-28" />
+            </div>
+          ))}
+        </div>
+      );
+    }
 
   const renderInvoices = () => (
     <div className="space-y-4">
@@ -402,8 +459,94 @@ const ClientMatterDetailPage = () => {
           </button>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderMessages = () => {
+    const messages = messagesData?.results ?? [];
+
+    if (isLoadingThreads && !threads.length) {
+      return (
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {threads.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-xs font-medium text-slate-500" htmlFor="client-thread-select">
+              Conversation
+            </label>
+            <select
+              id="client-thread-select"
+              value={selectedThreadId ?? ""}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedThreadId(event.target.value || null)}
+              className="rounded border border-slate-300 px-3 py-1 text-sm focus:border-primary-500 focus:outline-none"
+            >
+              {threads.map((thread) => (
+                <option key={thread.id} value={thread.id}>
+                  Thread {thread.id.slice(0, 6)} · {new Date(thread.created_at).toLocaleDateString()}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : threads.length === 0 ? (
+          <div className="rounded border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+            <p>No conversations yet.</p>
+            <Button className="mt-3" size="sm" onClick={handleCreateThread} disabled={creatingThread}>
+              {creatingThread ? "Starting..." : "Start Conversation"}
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="max-h-96 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-3">
+          {messages.length === 0 ? (
+            <p className="text-sm text-slate-500">No messages yet. Start the conversation below.</p>
+          ) : (
+            <ul className="space-y-3 text-sm">
+              {messages.map((message) => {
+                const isClient = Boolean(message.sender_client);
+                return (
+                  <li key={message.id} className={`flex ${isClient ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                        isClient ? "bg-primary-600 text-white" : "bg-white text-slate-700 shadow"
+                      }`}
+                    >
+                      <p>{message.body}</p>
+                      <time className={`mt-1 block text-xs ${isClient ? "text-primary-100" : "text-slate-400"}`}>
+                        {new Date(message.created_at).toLocaleString()}
+                      </time>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <form className="space-y-2" onSubmit={handleSendMessage}>
+          <textarea
+            value={messageDraft}
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setMessageDraft(event.target.value)}
+            rows={3}
+            className="w-full rounded border border-slate-300 p-2 text-sm focus:border-primary-500 focus:outline-none"
+            placeholder="Write a message..."
+            disabled={threads.length === 0 || !selectedThreadId}
+          />
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" disabled={!selectedThreadId || sendingMessage || !messageDraft.trim()}>
+              {sendingMessage ? "Sending..." : "Send"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
+  };
 
   const renderMessages = () => {
     const messages = messagesData?.results ?? [];

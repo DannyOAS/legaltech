@@ -7,50 +7,62 @@ def rename_index_if_exists(apps, schema_editor):
     """Safely rename index only if old index exists and new index doesn't."""
     with schema_editor.connection.cursor() as cursor:
         # Check if old index exists
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT 1 FROM pg_indexes 
             WHERE indexname = 'matters_mat_reference_287ad0_idx'
-        """)
+        """
+        )
         old_exists = cursor.fetchone() is not None
-        
+
         # Check if new index exists
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT 1 FROM pg_indexes 
             WHERE indexname = 'matters_mat_referen_0e5285_idx'
-        """)
+        """
+        )
         new_exists = cursor.fetchone() is not None
-        
+
         # Only rename if old exists and new doesn't
         if old_exists and not new_exists:
-            cursor.execute("""
+            cursor.execute(
+                """
                 ALTER INDEX "matters_mat_reference_287ad0_idx" 
                 RENAME TO "matters_mat_referen_0e5285_idx"
-            """)
+            """
+            )
 
 
 def reverse_rename_index_if_exists(apps, schema_editor):
     """Reverse the rename operation if needed."""
     with schema_editor.connection.cursor() as cursor:
         # Check if new index exists
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT 1 FROM pg_indexes 
             WHERE indexname = 'matters_mat_referen_0e5285_idx'
-        """)
+        """
+        )
         new_exists = cursor.fetchone() is not None
-        
+
         # Check if old index exists
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT 1 FROM pg_indexes 
             WHERE indexname = 'matters_mat_reference_287ad0_idx'
-        """)
+        """
+        )
         old_exists = cursor.fetchone() is not None
-        
+
         # Only rename back if new exists and old doesn't
         if new_exists and not old_exists:
-            cursor.execute("""
+            cursor.execute(
+                """
                 ALTER INDEX "matters_mat_referen_0e5285_idx" 
                 RENAME TO "matters_mat_reference_287ad0_idx"
-            """)
+            """
+            )
 
 
 class Migration(migrations.Migration):
