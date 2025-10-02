@@ -68,32 +68,67 @@ const DashboardPage = () => {
 
   if (isClient) {
     return (
-      <div className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-lg bg-white p-6 shadow">
-          <h2 className="text-lg font-semibold text-slate-700">My Overview</h2>
-          <dl className="mt-4 space-y-2 text-sm text-slate-600">
+      <div className="space-y-6">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <dt>Outstanding Balance</dt>
-              <dd className="text-xl font-semibold text-primary-600">${clientSummary?.outstanding_balance ?? "0.00"}</dd>
+              <h2 className="text-lg font-semibold text-slate-800">My Overview</h2>
+              <p className="text-sm text-slate-500">Track your account health at a glance.</p>
             </div>
-            <div>
-              <dt>Documents Available</dt>
-              <dd className="text-xl font-semibold text-primary-600">{clientSummary?.documents_count ?? 0}</dd>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                window.location.href = "/client/invoices";
+              }}
+            >
+              View Statements
+            </Button>
+          </div>
+          <dl className="mt-6 grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-2">
+            <div className="rounded-lg border border-slate-100 p-4">
+              <dt className="text-xs uppercase tracking-wide text-slate-400">Outstanding Balance</dt>
+              <dd className="mt-1 text-2xl font-semibold text-primary-600">
+                ${clientSummary?.outstanding_balance ?? "0.00"}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-slate-100 p-4">
+              <dt className="text-xs uppercase tracking-wide text-slate-400">Documents Available</dt>
+              <dd className="mt-1 text-2xl font-semibold text-primary-600">
+                {clientSummary?.documents_count ?? 0}
+              </dd>
             </div>
           </dl>
         </section>
-        <section className="rounded-lg bg-white p-6 shadow md:col-span-2">
-          <h2 className="text-lg font-semibold text-slate-700">Recent Documents</h2>
-          <ul className="mt-4 space-y-3 text-sm">
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800">Recent Documents</h2>
+              <p className="text-sm text-slate-500">Latest uploads shared with you by the firm.</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                window.location.href = "/client/documents";
+              }}
+            >
+              View All
+            </Button>
+          </div>
+          <ul className="mt-5 divide-y divide-slate-100 rounded-lg border border-slate-100">
             {clientSummary?.recent_documents?.length ? (
               clientSummary.recent_documents.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
-                  <span>{doc.filename}</span>
-                  <time className="text-xs text-slate-500">{new Date(doc.uploaded_at).toLocaleString()}</time>
+                <li key={doc.id} className="flex flex-col gap-2 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-medium text-slate-700">{doc.filename}</span>
+                  <time className="text-xs uppercase tracking-wide text-slate-400">
+                    {new Date(doc.uploaded_at).toLocaleString()}
+                  </time>
                 </li>
               ))
             ) : (
-              <li className="text-slate-500">No recent documents</li>
+              <li className="p-4 text-sm text-slate-500">No recent documents</li>
             )}
           </ul>
         </section>

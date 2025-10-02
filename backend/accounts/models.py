@@ -163,19 +163,25 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.save(update_fields=["password_changed_at"])
 
 
-class Role(models.Model):
-    ROLE_CHOICES = [
-        ("Owner", "Owner"),
-        ("Admin", "Admin"),
-        ("Lawyer", "Lawyer"),
-        ("Paralegal", "Paralegal"),
-        ("Assistant", "Assistant"),
-        ("Client", "Client"),
-    ]
-
+class Permission(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=32, choices=ROLE_CHOICES)
+    codename = models.CharField(max_length=64, unique=True)
+    label = models.CharField(max_length=128)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["codename"]
+
+    def __str__(self) -> str:
+        return self.codename
+
+
+class Role(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=64)
     organization = models.ForeignKey(Organization, related_name="roles", on_delete=models.CASCADE)
+    is_custom = models.BooleanField(default=False)
+    permissions = models.ManyToManyField(Permission, related_name="roles", blank=True)
 
     class Meta:
         unique_together = ("name", "organization")
