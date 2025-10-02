@@ -66,10 +66,6 @@ const ClientMatterDetailPage = () => {
   const [docPage, setDocPage] = useState(0);
   const [invoicePage, setInvoicePage] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
-  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
-  const [messageDraft, setMessageDraft] = useState("");
-  const [sendingMessage, setSendingMessage] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
   const { data: matter, error, isLoading } = useSWR<ClientMatter>(id ? `/client/matters/${id}/` : null, fetcher);
@@ -170,11 +166,7 @@ const ClientMatterDetailPage = () => {
 
   const handleDocumentDownload = async (doc: ClientDocument) => {
     try {
-  setDownloadingDocumentId(doc.id);
-      setStatusMessage("Fetching download link...");
-      const response = await api.get<{ url: string | { url: string } }>(`/client/documents/${doc.id}/download/`);
-      const url = typeof response.url === "string" ? response.url : response.url?.url;
-      if (!url) {
+      setDownloadingDocumentId(doc.id);
         throw new Error("No download URL returned");
       }
       const link = document.createElement("a");
@@ -189,12 +181,7 @@ const ClientMatterDetailPage = () => {
       const message = err instanceof ApiError ? err.payload.detail ?? "Unable to download document" : "Unable to download document";
       setStatusMessage(message);
     } finally {
-  setDownloadingDocumentId(null);
-      resetStatus();
-    }
-  };
-
-  const handleInvoiceDownload = async (invoice: ClientInvoice) => {
+      setDownloadingDocumentId(null);
     try {
       setDownloadingInvoiceId(invoice.id);
       setStatusMessage("Generating invoice PDF...");
@@ -216,15 +203,10 @@ const ClientMatterDetailPage = () => {
       setStatusMessage(message);
     } finally {
       setDownloadingInvoiceId(null);
-      resetStatus();
-    }
-  };
-
   const renderMatterMeta = () => {
     if (!matter) {
       return null;
     }
-    return (
       <dl className="grid gap-4 text-sm text-slate-600 md:grid-cols-2">
         <div>
           <dt className="font-medium text-slate-500">Reference</dt>
@@ -250,65 +232,7 @@ const ClientMatterDetailPage = () => {
           <dt className="font-medium text-slate-500">Closed</dt>
           <dd>{matter.closed_at ? new Date(matter.closed_at).toLocaleDateString() : "—"}</dd>
         </div>
-      </dl>
-    );
-  };
-
-  const renderDocuments = () => {
-    if (isLoadingDocuments && !documents.length) {
-      return (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="flex items-center justify-between rounded border border-slate-200 p-3">
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-              <Skeleton className="h-8 w-24" />
-            </div>
-          ))}
         </div>
-      );
-    }
-
-    if (documents.length === 0) {
-      return <p className="text-sm text-slate-500">No documents shared yet.</p>;
-    }
-
-    return (
-      <div className="space-y-3">
-        <ul className="space-y-3 text-sm">
-          {documents.map((doc) => (
-            <li key={doc.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
-              <div>
-                <p className="font-medium text-slate-700">{doc.filename}</p>
-                <p className="text-xs text-slate-500">
-                  {doc.mime} · {(doc.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <time className="text-xs text-slate-500">{new Date(doc.uploaded_at).toLocaleString()}</time>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleDocumentDownload(doc)}
-                  disabled={downloadingDocumentId === doc.id}
-                >
-                  {downloadingDocumentId === doc.id ? "Preparing..." : "Download"}
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>{`Showing ${docPage * PAGE_SIZE + 1}-${docPage * PAGE_SIZE + documents.length} of ${totalDocuments}`}</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setDocPage((prev) => Math.max(prev - 1, 0))}
-              disabled={!hasPrevDocs}
-              className={`rounded border px-2 py-1 ${
-                hasPrevDocs ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
               }`}
             >
               Previous
@@ -517,134 +441,6 @@ const ClientMatterDetailPage = () => {
             <p className="text-sm text-slate-500">No messages yet. Start the conversation below.</p>
           ) : (
             <ul className="space-y-3 text-sm">
-              {messages.map((message) => {
-                const isClient = Boolean(message.sender_client);
-                return (
-                  <li key={message.id} className={`flex ${isClient ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                        isClient ? "bg-primary-600 text-white" : "bg-white text-slate-700 shadow"
-                      }`}
-                    >
-                      <p>{message.body}</p>
-                      <time className={`mt-1 block text-xs ${isClient ? "text-primary-100" : "text-slate-400"}`}>
-                        {new Date(message.created_at).toLocaleString()}
-                      </time>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        <form className="space-y-2" onSubmit={handleSendMessage}>
-          <textarea
-            value={messageDraft}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setMessageDraft(event.target.value)}
-            rows={3}
-            className="w-full rounded border border-slate-300 p-2 text-sm focus:border-primary-500 focus:outline-none"
-            placeholder="Write a message..."
-            disabled={threads.length === 0 || !selectedThreadId}
-          />
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={!selectedThreadId || sendingMessage || !messageDraft.trim()}>
-              {sendingMessage ? "Sending..." : "Send"}
-            </Button>
-          </div>
-        </form>
-      </div>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <section className="rounded-lg bg-white p-6 shadow">
-          <Skeleton className="h-6 w-48" />
-          <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="space-y-2">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-4 w-40" />
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="rounded-lg bg-white p-6 shadow">
-          <div className="flex gap-4 border-b border-slate-200 pb-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} className="h-5 w-20" />
-            ))}
-          </div>
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="rounded border border-slate-200 p-4">
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="mt-2 h-3 w-2/3" />
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  if (error) {
-    return <p className="text-sm text-red-600">Unable to load matter.</p>;
-  }
-
-  if (!matter) {
-    return <p className="text-sm text-slate-500">Matter not found.</p>;
-  }
-
-  return (
-    <div className="space-y-6">
-      <section className="rounded-lg bg-white p-6 shadow">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-700">{matter.title}</h2>
-            <p className="text-xs text-slate-500">Reference: {matter.reference_code}</p>
-          </div>
-        </div>
-        <div className="mt-6">{renderMatterMeta()}</div>
-      </section>
-      <section className="rounded-lg bg-white p-6 shadow">
-        <div className="flex items-center gap-4 border-b border-slate-200 pb-3">
-          <button
-            type="button"
-            className={`text-sm font-medium ${
-              activeTab === "documents" ? "border-b-2 border-primary-600 text-primary-600" : "text-slate-500"
-            }`}
-            onClick={() => setActiveTab("documents")}
-          >
-            Documents
-          </button>
-          <button
-            type="button"
-            className={`text-sm font-medium ${
-              activeTab === "invoices" ? "border-b-2 border-primary-600 text-primary-600" : "text-slate-500"
-            }`}
-            onClick={() => setActiveTab("invoices")}
-          >
-            Invoices
-          </button>
-          <button
-            type="button"
-            className={`text-sm font-medium ${
-              activeTab === "messages" ? "border-b-2 border-primary-600 text-primary-600" : "text-slate-500"
-            }`}
-            onClick={() => setActiveTab("messages")}
-          >
-            Messages
-          </button>
-        </div>
-        <div className="mt-4">
-          {statusMessage ? (
-            <div className="mb-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{statusMessage}</div>
-          ) : null}
-          {activeTab === "documents"
-            ? renderDocuments()
             : activeTab === "invoices"
             ? renderInvoices()
             : renderMessages()}

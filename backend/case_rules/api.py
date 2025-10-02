@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from django.conf import settings
 from django.utils import timezone
 
 from rest_framework import serializers, status
@@ -56,13 +55,11 @@ class CalculateDeadlinesView(APIView):
         data = DeadlineSerializer(deadlines, many=True).data
         saved_deadlines = []
         
-        # Save deadlines if requested and feature is enabled
-        if (payload.get("save_deadlines") and 
-            payload.get("matter_id") and 
-            getattr(settings, 'FEATURE_CASE_TRACKER', False)):
-            
+        # Save deadlines if requested
+        if payload.get("save_deadlines") and payload.get("matter_id"):
+
             matter = payload["matter_id"]
-            
+
             for deadline in deadlines:
                 # Convert date to datetime for storage
                 due_datetime = timezone.make_aware(

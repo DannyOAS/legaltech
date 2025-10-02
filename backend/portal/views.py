@@ -9,6 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import IsOrganizationMember
 from config.tenancy import OrganizationModelViewSet
 from notifications.service import send_notification
 from services.audit.logging import audit_action
@@ -223,6 +224,7 @@ class DocumentViewSet(OrganizationModelViewSet):
 class MessageThreadViewSet(OrganizationModelViewSet):
     serializer_class = MessageThreadSerializer
     queryset = MessageThread.objects.select_related("matter")
+    permission_classes = [IsOrganizationMember]
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("matter")
@@ -291,6 +293,7 @@ class DocumentCommentViewSet(OrganizationModelViewSet):
 class MessageViewSet(OrganizationModelViewSet):
     serializer_class = MessageSerializer
     queryset = Message.objects.select_related("thread")
+    permission_classes = [IsOrganizationMember]
 
     def perform_create(self, serializer):
         client_profile = getattr(self.request.user, "client_profile", None)
