@@ -4,7 +4,6 @@ import Button from "../../components/ui/Button";
 import CheckboxField from "../../components/ui/CheckboxField";
 import Modal from "../../components/ui/Modal";
 import SelectField from "../../components/ui/SelectField";
-import Spinner from "../../components/ui/Spinner";
 import TextAreaField from "../../components/ui/TextAreaField";
 import TextField from "../../components/ui/TextField";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -117,6 +116,43 @@ const invoiceStatusOptions = [
   { value: "paid", label: "Paid" },
   { value: "overdue", label: "Overdue" },
 ];
+
+const renderTableSkeleton = (columnWidths: string[], rows = 5) => (
+  <>
+    <div className="hidden md:block">
+      <div className="overflow-hidden rounded-lg border border-slate-200">
+        <ul className="divide-y divide-slate-200">
+          {Array.from({ length: rows }).map((_, rowIndex) => (
+            <li key={rowIndex} className="flex items-center gap-4 px-4 py-3">
+              {Array.from({ length: columnWidths.length || 5 }).map((__, colIndex) => {
+                const widthClass = columnWidths[colIndex] ?? "flex-1";
+                return (
+                  <div
+                    key={colIndex}
+                    className={["h-4", "animate-pulse", "rounded", "bg-slate-200", widthClass]
+                      .filter(Boolean)
+                      .join(" ")}
+                  />
+                );
+              })}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+    <div className="space-y-3 md:hidden">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="space-y-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </>
+);
 
 const BillingPage = () => {
   const toast = useToast();
@@ -582,9 +618,15 @@ const BillingPage = () => {
           <p className="text-sm text-amber-600">Create a matter before logging time.</p>
         ) : null}
         {isTimeLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner size="lg" />
-          </div>
+          renderTableSkeleton([
+            "flex-1",
+            "flex-1",
+            "w-24",
+            "w-24",
+            "w-28",
+            "w-20",
+            "w-24",
+          ])
         ) : timeEntries.length === 0 ? (
           <p className="text-sm text-slate-500">No time entries captured yet.</p>
         ) : (
@@ -727,9 +769,15 @@ const BillingPage = () => {
           </div>
         </div>
         {isExpenseLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner size="lg" />
-          </div>
+          renderTableSkeleton([
+            "flex-1",
+            "flex-1",
+            "w-28",
+            "w-28",
+            "w-24",
+            "w-32",
+            "w-24",
+          ])
         ) : expenses.length === 0 ? (
           <p className="text-sm text-slate-500">No expenses recorded yet.</p>
         ) : (
@@ -878,9 +926,15 @@ const BillingPage = () => {
           </div>
         </div>
         {isInvoiceLoading ? (
-          <div className="flex justify-center py-10">
-            <Spinner size="lg" />
-          </div>
+          renderTableSkeleton([
+            "w-28",
+            "flex-1",
+            "w-28",
+            "w-28",
+            "w-24",
+            "w-24",
+            "w-24",
+          ])
         ) : invoices.length === 0 ? (
           <p className="text-sm text-slate-500">No invoices yet.</p>
         ) : (

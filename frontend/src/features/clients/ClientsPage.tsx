@@ -4,10 +4,10 @@ import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import TextAreaField from "../../components/ui/TextAreaField";
 import TextField from "../../components/ui/TextField";
-import Spinner from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/ToastProvider";
 import { api, ApiError } from "../../lib/api";
 import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import RoleGuard from "../auth/RoleGuard";
 
 interface Client {
   id: string;
@@ -50,6 +50,38 @@ const sanitizePayload = (values: FormState) => ({
   address: values.address.trim(),
   notes: values.notes.trim(),
 });
+
+const renderLoadingSkeleton = (rows = 5) => (
+  <>
+    <div className="hidden md:block">
+      <div className="overflow-hidden rounded-lg border border-slate-200">
+        <ul className="divide-y divide-slate-200">
+          {Array.from({ length: rows }).map((_, index) => (
+            <li key={index} className="flex items-center gap-4 px-4 py-3">
+              <div className="h-4 flex-1 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 flex-1 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 flex-1 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+    <div className="space-y-3 md:hidden">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="space-y-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </>
+);
 
 const ClientsPage = () => {
   const toast = useToast();
@@ -253,13 +285,13 @@ const ClientsPage = () => {
             placeholder="Search clients..."
             className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
           />
-          <Button onClick={openCreateModal}>New Client</Button>
+          <RoleGuard allow={["Owner", "Admin", "Lawyer", "Paralegal"]}>
+            <Button onClick={openCreateModal}>New Client</Button>
+          </RoleGuard>
         </div>
       </div>
       {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Spinner size="lg" />
-        </div>
+        renderLoadingSkeleton()
       ) : clients.length === 0 ? (
         <p className="text-sm text-slate-500">No clients yet. Create your first client to get started.</p>
       ) : (
@@ -298,23 +330,27 @@ const ClientsPage = () => {
                           Portal User
                         </Button>
                       ) : (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => inviteClient(client)}
-                          disabled={isInviting || !clientRoleId}
-                        >
-                          Invite
-                        </Button>
+                        <RoleGuard allow={["Owner", "Admin", "Lawyer", "Paralegal"]}>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => inviteClient(client)}
+                            disabled={isInviting || !clientRoleId}
+                          >
+                            Invite
+                          </Button>
+                        </RoleGuard>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(client)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
-                        aria-label="Delete client"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
+                      <RoleGuard allow={["Owner", "Admin"]}>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(client)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                          aria-label="Delete client"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </RoleGuard>
                     </div>
                   </td>
                   </tr>
@@ -349,23 +385,27 @@ const ClientsPage = () => {
                       Portal User
                     </Button>
                   ) : (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => inviteClient(client)}
-                      disabled={isInviting || !clientRoleId}
-                    >
-                      Invite
-                    </Button>
+                    <RoleGuard allow={["Owner", "Admin", "Lawyer", "Paralegal"]}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => inviteClient(client)}
+                        disabled={isInviting || !clientRoleId}
+                      >
+                        Invite
+                      </Button>
+                    </RoleGuard>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(client)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
-                    aria-label="Delete client"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                  <RoleGuard allow={["Owner", "Admin"]}>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(client)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:border-red-300 hover:text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                      aria-label="Delete client"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </RoleGuard>
                 </div>
               </div>
             ))}

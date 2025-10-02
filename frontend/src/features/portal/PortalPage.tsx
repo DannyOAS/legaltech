@@ -21,6 +21,34 @@ interface PaginatedResponse<T> {
   results: T[];
   count: number;
 }
+
+const renderDocumentSkeleton = (rows = 5) =>
+  Array.from({ length: rows }).map((_, index) => (
+    <li key={`doc-skeleton-${index}`} className="rounded border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+            <span className="h-3 w-16 animate-pulse rounded bg-slate-200" />
+            <span className="h-3 w-20 animate-pulse rounded bg-slate-200" />
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:items-end">
+          <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            {Array.from({ length: 3 }).map((__, actionIndex) => (
+              <span
+                key={actionIndex}
+                className="inline-flex h-9 w-9 animate-pulse rounded-full bg-slate-200"
+                aria-hidden="true"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </li>
+  ));
 const PortalPage = () => {
   const [page, setPage] = useState(0);
   const [searchValue, setSearchValue] = useState("");
@@ -32,7 +60,7 @@ const PortalPage = () => {
     }
     return `/documents/?${params.toString()}`;
   }, [offset, searchValue]);
-  const { data, mutate } = useSWR<PaginatedResponse<PortalDoc>>(documentsKey, fetcher);
+  const { data, mutate, isLoading } = useSWR<PaginatedResponse<PortalDoc>>(documentsKey, fetcher);
   const [matterSearch, setMatterSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -438,7 +466,9 @@ const PortalPage = () => {
           />
         </div>
         <ul className="mt-4 space-y-3 text-sm">
-          {documents.length ? (
+          {isLoading && !data ? (
+            renderDocumentSkeleton()
+          ) : documents.length ? (
             documents.map((doc) => (
               <li key={doc.id} className="rounded border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

@@ -2,6 +2,18 @@
 
 Base URL: `/api/v1/`
 
+## OpenAPI Schema Snapshot
+
+- Latest export: [`docs/api/schema.yaml`](./api/schema.yaml) (generated with `drf-spectacular`)
+- Regenerate after API changes:
+
+  ```bash
+  cd backend
+  ../.venv/bin/python manage.py spectacular --file ../docs/api/schema.yaml
+  ```
+
+  _Common warnings_: several APIViews (e.g., `LogoutView`, `BillingSummaryView`) lack an explicit `serializer_class`, so they are omitted from the schema until serializers are defined. Custom authenticators such as `accounts.authentication.JWTCookieAuthentication` can be documented by implementing an [`OpenApiAuthenticationExtension`](https://drf-spectacular.readthedocs.io/en/latest/customization.html#extending-authentication)._ 
+
 ## Auth
 
 | Endpoint | Method | Description |

@@ -2,7 +2,6 @@ import { ChangeEvent, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import useSWR from "swr";
 import Button from "../../components/ui/Button";
-import Spinner from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/ToastProvider";
 import { api, ApiError } from "../../lib/api";
 import { CheckIcon } from "@heroicons/react/24/outline";
@@ -26,6 +25,39 @@ interface PaginatedResponse<T> {
 
 const fetcher = <T,>(url: string) => api.get<T>(url);
 const PAGE_SIZE = 10;
+
+const renderLoadingSkeleton = (rows = 5) => (
+  <>
+    <div className="hidden md:block">
+      <div className="overflow-hidden rounded-lg border border-slate-200">
+        <ul className="divide-y divide-slate-200">
+          {Array.from({ length: rows }).map((_, index) => (
+            <li key={index} className="flex items-center gap-4 px-4 py-3">
+              <div className="h-4 flex-1 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+    <div className="space-y-3 md:hidden">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="space-y-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
+            <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </>
+);
 
 const DeadlinesListPage = () => {
   const toast = useToast();
@@ -158,9 +190,7 @@ const DeadlinesListPage = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Spinner size="lg" />
-        </div>
+        renderLoadingSkeleton()
       ) : deadlines.length === 0 ? (
         <p className="text-sm text-slate-500">No deadlines found matching your criteria.</p>
       ) : (

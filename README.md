@@ -254,4 +254,10 @@ Backend: `pytest --cov`. Frontend: `npm run test -- --run`. CI enforces formatti
 
 ## Documentation
 
-See `/docs` for architecture, security, compliance, tenancy, API references, and roadmap.
+- [Architecture overview](docs/architecture.md)
+- [Frontend patterns & design system](docs/frontend.md)
+- [Security posture](docs/security.md)
+- [Compliance controls](docs/compliance.md)
+- [Tenant model](docs/tenancy.md)
+- [API reference & schema](docs/api.md)
+- [Product roadmap](docs/roadmap.md)

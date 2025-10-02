@@ -20,6 +20,10 @@ import ClientMattersPage from "../features/client/ClientMattersPage";
 import ClientMatterDetailPage from "../features/client/ClientMatterDetailPage";
 import DeadlinesListPage from "../features/deadlines/DeadlinesListPage";
 import DeadlinesCalendarPage from "../features/deadlines/DeadlinesCalendarPage";
+import RoleProtectedRoute from "../features/auth/RoleProtectedRoute";
+
+const STAFF_ROLES = ["Owner", "Admin", "Lawyer", "Paralegal", "Assistant"];
+const CLIENT_ROLES = ["Client"];
 
 const App = () => (
   <AuthProvider>
@@ -31,20 +35,26 @@ const App = () => (
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/matters" element={<MattersPage />} />
-          <Route path="/matters/:id" element={<MatterDetailPage />} />
-          <Route path="/billing" element={<BillingPage />} />
-          <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
-          <Route path="/portal" element={<PortalPage />} />
-          <Route path="/portal/:matterId" element={<MatterPortalPage />} />
-          <Route path="/deadlines" element={<DeadlinesListPage />} />
-          <Route path="/deadlines/calendar" element={<DeadlinesCalendarPage />} />
-          <Route path="/settings" element={<OrgSettingsPage />} />
-          <Route path="/client/documents" element={<ClientDocumentsPage />} />
-          <Route path="/client/matters" element={<ClientMattersPage />} />
-          <Route path="/client/matters/:id" element={<ClientMatterDetailPage />} />
-          <Route path="/client/invoices" element={<ClientInvoicesPage />} />
+          <Route element={<RoleProtectedRoute allow={STAFF_ROLES} />}>
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/matters" element={<MattersPage />} />
+            <Route path="/matters/:id" element={<MatterDetailPage />} />
+            <Route path="/billing" element={<BillingPage />} />
+            <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+            <Route path="/portal" element={<PortalPage />} />
+            <Route path="/portal/:matterId" element={<MatterPortalPage />} />
+            <Route path="/deadlines" element={<DeadlinesListPage />} />
+            <Route path="/deadlines/calendar" element={<DeadlinesCalendarPage />} />
+          </Route>
+          <Route element={<RoleProtectedRoute allow={['Owner', 'Admin']} />}>
+            <Route path="/settings" element={<OrgSettingsPage />} />
+          </Route>
+          <Route element={<RoleProtectedRoute allow={CLIENT_ROLES} />}>
+            <Route path="/client/documents" element={<ClientDocumentsPage />} />
+            <Route path="/client/matters" element={<ClientMattersPage />} />
+            <Route path="/client/matters/:id" element={<ClientMatterDetailPage />} />
+            <Route path="/client/invoices" element={<ClientInvoicesPage />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" />} />
