@@ -49,16 +49,7 @@ class Matter(TimeStampedModel):
     opened_at = models.DateField()
     closed_at = models.DateField(null=True, blank=True)
     reference_code = models.CharField(max_length=64, unique=True)
-    lead_lawyer = models.ForeignKey(
-        User, related_name="lead_matters", on_delete=models.SET_NULL, null=True
-    )
-    is_deleted = models.BooleanField(default=False)
 
-    class Meta:
-        ordering = ["-opened_at"]
-        indexes = [models.Index(fields=["reference_code"])]
-
-    def __str__(self) -> str:
         return self.title
 
     def save(self, *args, **kwargs):
