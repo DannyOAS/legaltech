@@ -1,5 +1,5 @@
 """Audit event viewsets."""
-
+from accounts.permissions import PermissionRequirement
 from config.tenancy import OrganizationModelViewSet
 
 from .models import AuditEvent

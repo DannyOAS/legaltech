@@ -17,9 +17,9 @@ from config.tenancy import OrganizationModelViewSet
 from services.audit.logging import audit_action
 from services.notifications.email import send_invitation_email
 
-from .mfa import generate_secret, provisioning_uri
-from .models import APIToken, Invitation, Organization, Role, User
-from .permissions import IsNotClient, IsOrgAdminOrReadOnly, IsOrganizationMember
+from .models import APIToken, Invitation, Organization, Permission, Role, User
+from .permissions import IsNotClient, IsOrganizationMember, PermissionRequirement, RBACPermission
+from .rbac import sync_organization_roles
 from .serializers import (
     APITokenSerializer,
     InvitationAcceptSerializer,

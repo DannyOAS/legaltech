@@ -49,9 +49,8 @@ class Matter(TimeStampedModel):
     opened_at = models.DateField()
     closed_at = models.DateField(null=True, blank=True)
     reference_code = models.CharField(max_length=64, unique=True)
-    lead_lawyer = models.ForeignKey(
-        User, related_name="lead_matters", on_delete=models.SET_NULL, null=True
-    )
+    lead_lawyer = models.ForeignKey(User, related_name="lead_matters", on_delete=models.SET_NULL, null=True)
+    team_members = models.ManyToManyField(User, through="MatterAccess", related_name="matters", blank=True)
     is_deleted = models.BooleanField(default=False)
 
     class Meta:

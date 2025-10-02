@@ -22,7 +22,43 @@ import DeadlinesListPage from "../features/deadlines/DeadlinesListPage";
 import DeadlinesCalendarPage from "../features/deadlines/DeadlinesCalendarPage";
 import RoleProtectedRoute from "../features/auth/RoleProtectedRoute";
 
-const STAFF_ROLES = ["Owner", "Admin", "Lawyer", "Paralegal", "Assistant"];
+const DASHBOARD_ROLES = [
+  "Owner",
+  "Admin",
+  "Lawyer",
+  "Paralegal",
+  "Assistant",
+  "Operations Admin",
+  "IT / Security",
+  "Accounting / Finance",
+];
+
+const CLIENT_MANAGEMENT_ROLES = [
+  "Owner",
+  "Admin",
+  "Lawyer",
+  "Paralegal",
+  "Assistant",
+  "Operations Admin",
+];
+
+const MATTER_ROLES = ["Owner", "Admin", "Lawyer", "Paralegal", "Assistant"];
+
+const BILLING_ROLES = [
+  "Owner",
+  "Admin",
+  "Lawyer",
+  "Paralegal",
+  "Operations Admin",
+  "Accounting / Finance",
+];
+
+const PORTAL_ROLES = ["Owner", "Admin", "Lawyer", "Paralegal", "Assistant"];
+
+const DEADLINE_ROLES = ["Owner", "Admin", "Lawyer", "Paralegal", "Assistant"];
+
+const SETTINGS_ROLES = ["Owner", "Admin", "Operations Admin", "IT / Security"];
+
 const CLIENT_ROLES = ["Client"];
 
 const App = () => (
@@ -34,22 +70,32 @@ const App = () => (
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route element={<RoleProtectedRoute allow={STAFF_ROLES} />}>
+          <Route element={<RoleProtectedRoute allow={DASHBOARD_ROLES} fallbackPath="/client/matters" />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+          </Route>
+          <Route element={<RoleProtectedRoute allow={CLIENT_MANAGEMENT_ROLES} />}>
             <Route path="/clients" element={<ClientsPage />} />
+          </Route>
+          <Route element={<RoleProtectedRoute allow={MATTER_ROLES} />}>
             <Route path="/matters" element={<MattersPage />} />
             <Route path="/matters/:id" element={<MatterDetailPage />} />
+          </Route>
+          <Route element={<RoleProtectedRoute allow={BILLING_ROLES} />}>
             <Route path="/billing" element={<BillingPage />} />
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+          </Route>
+          <Route element={<RoleProtectedRoute allow={PORTAL_ROLES} />}>
             <Route path="/portal" element={<PortalPage />} />
             <Route path="/portal/:matterId" element={<MatterPortalPage />} />
+          </Route>
+          <Route element={<RoleProtectedRoute allow={DEADLINE_ROLES} />}>
             <Route path="/deadlines" element={<DeadlinesListPage />} />
             <Route path="/deadlines/calendar" element={<DeadlinesCalendarPage />} />
           </Route>
-          <Route element={<RoleProtectedRoute allow={['Owner', 'Admin']} />}>
+          <Route element={<RoleProtectedRoute allow={SETTINGS_ROLES} />}>
             <Route path="/settings" element={<OrgSettingsPage />} />
           </Route>
-          <Route element={<RoleProtectedRoute allow={CLIENT_ROLES} />}>
+          <Route element={<RoleProtectedRoute allow={CLIENT_ROLES} fallbackPath="/dashboard" />}>
             <Route path="/client/documents" element={<ClientDocumentsPage />} />
             <Route path="/client/matters" element={<ClientMattersPage />} />
             <Route path="/client/matters/:id" element={<ClientMatterDetailPage />} />
