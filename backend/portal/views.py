@@ -9,6 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import PermissionRequirement, has_permission, restrict_related_queryset
 from config.tenancy import OrganizationModelViewSet
 from notifications.service import send_notification
 from services.audit.logging import audit_action
@@ -32,6 +33,22 @@ from .serializers import (
 class DocumentViewSet(OrganizationModelViewSet):
     serializer_class = DocumentSerializer
     queryset = Document.objects.select_related("matter", "owner")
+    rbac_resource = "document"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["document.view"]),
+        "retrieve": PermissionRequirement(all=["document.view"]),
+        "create": PermissionRequirement(all=["document.manage"]),
+        "update": PermissionRequirement(all=["document.manage"]),
+        "partial_update": PermissionRequirement(all=["document.manage"]),
+        "destroy": PermissionRequirement(all=["document.manage"]),
+        "download": PermissionRequirement(all=["document.view"]),
+        "versions": PermissionRequirement(all=["document.view"]),
+        "upload_version": PermissionRequirement(all=["document.manage"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset()
+        return restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="document.view_all")
 
     def create(self, request, *args, **kwargs):
         if "Client" in request.user.roles.values_list("name", flat=True):
@@ -110,6 +127,11 @@ class DocumentViewSet(OrganizationModelViewSet):
     def perform_update(self, serializer):
         document = serializer.instance
         was_visible = document.client_visible
+        if "client_visible" in serializer.validated_data and serializer.validated_data["client_visible"] != was_visible:
+            if not has_permission(self.request.user, "document.manage_visibility"):
+                from rest_framework.exceptions import PermissionDenied
+
+                raise PermissionDenied("You cannot change client visibility")
         updated = serializer.save()
         if not was_visible and updated.client_visible:
             matter = updated.matter
@@ -223,9 +245,19 @@ class DocumentViewSet(OrganizationModelViewSet):
 class MessageThreadViewSet(OrganizationModelViewSet):
     serializer_class = MessageThreadSerializer
     queryset = MessageThread.objects.select_related("matter")
+    rbac_resource = "messaging"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["messaging.use"]),
+        "retrieve": PermissionRequirement(all=["messaging.use"]),
+        "create": PermissionRequirement(all=["messaging.use"]),
+        "update": PermissionRequirement(all=["messaging.use"]),
+        "partial_update": PermissionRequirement(all=["messaging.use"]),
+        "destroy": PermissionRequirement(all=["messaging.use"]),
+    }
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("matter")
+        queryset = restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="matter.view_all")
         client_profile = getattr(self.request.user, "client_profile", None)
         matter_id = self.request.query_params.get("matter")
         if matter_id:
@@ -255,9 +287,19 @@ class MessageThreadViewSet(OrganizationModelViewSet):
 class DocumentCommentViewSet(OrganizationModelViewSet):
     serializer_class = DocumentCommentSerializer
     queryset = DocumentComment.objects.select_related("document", "author")
+    rbac_resource = "document"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["document.view"]),
+        "retrieve": PermissionRequirement(all=["document.view"]),
+        "create": PermissionRequirement(all=["document.manage"]),
+        "update": PermissionRequirement(all=["document.manage"]),
+        "partial_update": PermissionRequirement(all=["document.manage"]),
+        "destroy": PermissionRequirement(all=["document.manage"]),
+    }
 
     def get_queryset(self):  # type: ignore[override]
         queryset = super().get_queryset().select_related("document", "author")
+        queryset = restrict_related_queryset(queryset, self.request.user, related_field="document__matter", bypass_permission="document.view_all")
         document_id = self.request.query_params.get("document")
         if document_id:
             queryset = queryset.filter(document_id=document_id)
@@ -291,6 +333,15 @@ class DocumentCommentViewSet(OrganizationModelViewSet):
 class MessageViewSet(OrganizationModelViewSet):
     serializer_class = MessageSerializer
     queryset = Message.objects.select_related("thread")
+    rbac_resource = "messaging"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["messaging.use"]),
+        "retrieve": PermissionRequirement(all=["messaging.use"]),
+        "create": PermissionRequirement(all=["messaging.use"]),
+        "update": PermissionRequirement(all=["messaging.use"]),
+        "partial_update": PermissionRequirement(all=["messaging.use"]),
+        "destroy": PermissionRequirement(all=["messaging.use"]),
+    }
 
     def perform_create(self, serializer):
         client_profile = getattr(self.request.user, "client_profile", None)
@@ -342,6 +393,7 @@ class MessageViewSet(OrganizationModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("thread", "thread__matter")
+        queryset = restrict_related_queryset(queryset, self.request.user, related_field="thread__matter", bypass_permission="matter.view_all")
         client_profile = getattr(self.request.user, "client_profile", None)
         thread_id = self.request.query_params.get("thread")
         if thread_id:
@@ -354,6 +406,15 @@ class MessageViewSet(OrganizationModelViewSet):
 class ShareLinkViewSet(OrganizationModelViewSet):
     serializer_class = ShareLinkSerializer
     queryset = ShareLink.objects.select_related("document")
+    rbac_resource = "document"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["document.view"]),
+        "retrieve": PermissionRequirement(all=["document.view"]),
+        "create": PermissionRequirement(all=["document.manage"]),
+        "update": PermissionRequirement(all=["document.manage"]),
+        "partial_update": PermissionRequirement(all=["document.manage"]),
+        "destroy": PermissionRequirement(all=["document.manage"]),
+    }
 
     def perform_create(self, serializer):
         link = serializer.save(

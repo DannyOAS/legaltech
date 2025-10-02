@@ -106,3 +106,27 @@ class CaseDeadline(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.title} - {self.due_date.strftime('%Y-%m-%d')}"
+
+
+class MatterAccess(TimeStampedModel):
+    ROLE_CHOICES = [
+        ("lawyer", "Lawyer"),
+        ("paralegal", "Paralegal"),
+        ("staff", "Staff"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(Organization, related_name="matter_access", on_delete=models.CASCADE)
+    matter = models.ForeignKey(Matter, related_name="access_list", on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name="matter_access", on_delete=models.CASCADE)
+    role = models.CharField(max_length=24, choices=ROLE_CHOICES, default="staff")
+
+    class Meta:
+        unique_together = ("matter", "user")
+        indexes = [
+            models.Index(fields=["organization", "user"]),
+            models.Index(fields=["organization", "matter"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.matter_id}:{self.user_id}:{self.role}"

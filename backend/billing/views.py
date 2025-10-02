@@ -33,6 +33,19 @@ class TimeEntryViewSet(OrganizationModelViewSet):
     serializer_class = TimeEntrySerializer
     queryset = TimeEntry.objects.select_related("matter", "user")
     search_fields = ["description", "matter__title"]
+    rbac_resource = "billing"
+    rbac_permissions = {
+        "list": PermissionRequirement(any=["billing.record_time", "invoice.view", "invoice.view_all"]),
+        "retrieve": PermissionRequirement(any=["billing.record_time", "invoice.view", "invoice.view_all"]),
+        "create": PermissionRequirement(all=["billing.record_time"]),
+        "update": PermissionRequirement(all=["billing.record_time"]),
+        "partial_update": PermissionRequirement(all=["billing.record_time"]),
+        "destroy": PermissionRequirement(all=["billing.record_time"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset()
+        return restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="invoice.view_all")
 
     def perform_create(self, serializer):
         entry = serializer.save(organization=self.request.user.organization, user=self.request.user)
@@ -49,6 +62,19 @@ class TimeEntryViewSet(OrganizationModelViewSet):
 class ExpenseViewSet(OrganizationModelViewSet):
     serializer_class = ExpenseSerializer
     queryset = Expense.objects.select_related("matter")
+    rbac_resource = "billing"
+    rbac_permissions = {
+        "list": PermissionRequirement(any=["billing.record_expense", "invoice.view", "invoice.view_all"]),
+        "retrieve": PermissionRequirement(any=["billing.record_expense", "invoice.view", "invoice.view_all"]),
+        "create": PermissionRequirement(all=["billing.record_expense"]),
+        "update": PermissionRequirement(all=["billing.record_expense"]),
+        "partial_update": PermissionRequirement(all=["billing.record_expense"]),
+        "destroy": PermissionRequirement(all=["billing.record_expense"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset()
+        return restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="invoice.view_all")
 
     def perform_create(self, serializer):
         expense = serializer.save(organization=self.request.user.organization)
@@ -66,9 +92,22 @@ class InvoiceViewSet(OrganizationModelViewSet):
     serializer_class = InvoiceSerializer
     queryset = Invoice.objects.select_related("matter")
     search_fields = ["number", "matter__title"]
+    rbac_resource = "invoice"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["invoice.view"]),
+        "retrieve": PermissionRequirement(all=["invoice.view"]),
+        "create": PermissionRequirement(all=["invoice.manage"]),
+        "update": PermissionRequirement(all=["invoice.manage"]),
+        "partial_update": PermissionRequirement(all=["invoice.manage"]),
+        "destroy": PermissionRequirement(all=["invoice.manage"]),
+        "send": PermissionRequirement(all=["invoice.manage"]),
+        "mark_paid": PermissionRequirement(all=["invoice.mark_paid"]),
+        "download": PermissionRequirement(all=["invoice.view"]),
+    }
 
     def get_queryset(self):  # type: ignore[override]
         queryset = super().get_queryset().select_related("matter")
+        queryset = restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="invoice.view_all")
         status_filter = self.request.query_params.get("status")
         if status_filter:
             queryset = queryset.filter(status=status_filter)
@@ -201,6 +240,19 @@ class InvoiceViewSet(OrganizationModelViewSet):
 class PaymentViewSet(OrganizationModelViewSet):
     serializer_class = PaymentSerializer
     queryset = Payment.objects.select_related("invoice")
+    rbac_resource = "invoice"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["invoice.view"]),
+        "retrieve": PermissionRequirement(all=["invoice.view"]),
+        "create": PermissionRequirement(all=["invoice.mark_paid"]),
+        "update": PermissionRequirement(all=["invoice.mark_paid"]),
+        "partial_update": PermissionRequirement(all=["invoice.mark_paid"]),
+        "destroy": PermissionRequirement(all=["invoice.mark_paid"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset().select_related("invoice", "invoice__matter")
+        return restrict_related_queryset(queryset, self.request.user, related_field="invoice__matter", bypass_permission="invoice.view_all")
 
     def perform_create(self, serializer):
         payment = serializer.save(organization=self.request.user.organization)

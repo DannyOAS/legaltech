@@ -28,6 +28,7 @@ from .serializers import (
     MFASetupSerializer,
     MFAVerifySerializer,
     OrganizationSerializer,
+    PermissionSerializer,
     RefreshSerializer,
     RoleSerializer,
     TokenObtainPairSerializer,
@@ -281,16 +282,34 @@ class OrganizationViewSet(
     mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
     serializer_class = OrganizationSerializer
-    permission_classes = [IsOrganizationMember]
+    permission_classes = [IsOrganizationMember, RBACPermission]
+    rbac_permissions = {
+        "retrieve": PermissionRequirement(any=["org.manage", "org.manage_users", "org.manage_roles"]),
+        "update": PermissionRequirement(all=["org.manage"]),
+        "partial_update": PermissionRequirement(all=["org.manage"]),
+    }
 
     def get_object(self):
         return Organization.objects.get(id=self.request.organization_id)
+
+    def update(self, request, *args, **kwargs):  # type: ignore[override]
+        response = super().update(request, *args, **kwargs)
+        sync_organization_roles(self.get_object())
+        return response
 
 
 class UserViewSet(OrganizationModelViewSet):
     serializer_class = UserSerializer
     queryset = User.objects.all()
     permission_classes = [IsOrganizationMember, IsNotClient]
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["org.manage_users"]),
+        "retrieve": PermissionRequirement(all=["org.manage_users"]),
+        "create": PermissionRequirement(all=["org.manage_users"]),
+        "update": PermissionRequirement(all=["org.manage_users"]),
+        "partial_update": PermissionRequirement(all=["org.manage_users"]),
+        "destroy": PermissionRequirement(all=["org.manage_users"]),
+    }
 
     def get_permissions(self):  # type: ignore[override]
         if getattr(self, "action", None) == "me":
@@ -320,13 +339,40 @@ class UserViewSet(OrganizationModelViewSet):
 class RoleViewSet(OrganizationModelViewSet):
     serializer_class = RoleSerializer
     queryset = Role.objects.all()
-    permission_classes = [IsOrganizationMember, IsOrgAdminOrReadOnly, IsNotClient]
+    permission_classes = [IsOrganizationMember, IsNotClient]
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["org.manage_roles"]),
+        "retrieve": PermissionRequirement(all=["org.manage_roles"]),
+        "create": PermissionRequirement(all=["org.manage_roles"]),
+        "update": PermissionRequirement(all=["org.manage_roles"]),
+        "partial_update": PermissionRequirement(all=["org.manage_roles"]),
+        "destroy": PermissionRequirement(all=["org.manage_roles"]),
+    }
+
+
+class PermissionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = PermissionSerializer
+    queryset = Permission.objects.all().order_by("codename")
+    permission_classes = [IsOrganizationMember, IsNotClient, RBACPermission]
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["org.manage_roles"]),
+    }
+    pagination_class = None
 
 
 class InvitationViewSet(OrganizationModelViewSet):
     serializer_class = InvitationSerializer
     queryset = Invitation.objects.select_related("role")
-    permission_classes = [IsOrganizationMember, IsOrgAdminOrReadOnly, IsNotClient]
+    permission_classes = [IsOrganizationMember, IsNotClient]
+    rbac_permissions = {
+        "list": PermissionRequirement(any=["org.manage_users", "org.invite_clients"]),
+        "retrieve": PermissionRequirement(any=["org.manage_users", "org.invite_clients"]),
+        "create": PermissionRequirement(any=["org.manage_users", "org.invite_clients"]),
+        "update": PermissionRequirement(any=["org.manage_users", "org.invite_clients"]),
+        "partial_update": PermissionRequirement(any=["org.manage_users", "org.invite_clients"]),
+        "destroy": PermissionRequirement(any=["org.manage_users", "org.invite_clients"]),
+        "resend": PermissionRequirement(any=["org.manage_users", "org.invite_clients"]),
+    }
 
     def get_queryset(self):  # type: ignore[override]
         queryset = super().get_queryset().select_related("role", "client")
@@ -387,7 +433,15 @@ class InvitationViewSet(OrganizationModelViewSet):
 class APITokenViewSet(OrganizationModelViewSet):
     serializer_class = APITokenSerializer
     queryset = APIToken.objects.all()
-    permission_classes = [IsOrganizationMember, IsOrgAdminOrReadOnly, IsNotClient]
+    permission_classes = [IsOrganizationMember, IsNotClient]
+    rbac_permissions = {
+        "list": PermissionRequirement(any=["org.manage_roles", "org.manage_users"]),
+        "retrieve": PermissionRequirement(any=["org.manage_roles", "org.manage_users"]),
+        "create": PermissionRequirement(any=["org.manage_roles", "org.manage_users"]),
+        "update": PermissionRequirement(any=["org.manage_roles", "org.manage_users"]),
+        "partial_update": PermissionRequirement(any=["org.manage_roles", "org.manage_users"]),
+        "destroy": PermissionRequirement(any=["org.manage_roles", "org.manage_users"]),
+    }
 
     def perform_create(self, serializer):
         token = serializer.save(organization=self.request.user.organization)

@@ -12,6 +12,7 @@ from .views import (
     MFASetupView,
     MFAVerifyView,
     OrganizationViewSet,
+    PermissionViewSet,
     RefreshView,
     RoleViewSet,
     UserViewSet,
@@ -21,6 +22,7 @@ router = DefaultRouter()
 router.register("org", OrganizationViewSet, basename="org")
 router.register("users", UserViewSet, basename="user")
 router.register("roles", RoleViewSet, basename="role")
+router.register("permissions", PermissionViewSet, basename="permission")
 router.register("invitations", InvitationViewSet, basename="invitation")
 router.register("api-tokens", APITokenViewSet, basename="api-token")
 

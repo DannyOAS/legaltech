@@ -12,6 +12,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import PermissionRequirement, RBACPermission
+
 from billing.models import Invoice
 from matters.models import Matter
 from portal.models import Document
@@ -22,7 +24,11 @@ from .serializers import ClientDocumentSerializer, ClientInvoiceSerializer, Clie
 
 
 class ClientPortalMixin:
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, RBACPermission]
+    rbac_requirement = PermissionRequirement(all=["portal.client_access"])
+
+    def get_required_permissions(self):  # type: ignore[override]
+        return self.rbac_requirement
 
     def _get_client(self):
         return getattr(self.request.user, "client_profile", None)
