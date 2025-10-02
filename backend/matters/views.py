@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from datetime import timedelta
 
+from accounts.permissions import PermissionRequirement, restrict_matters_queryset, restrict_related_queryset
 from config.tenancy import OrganizationModelViewSet
 from services.audit.logging import audit_action
 
@@ -20,6 +21,19 @@ class ClientViewSet(OrganizationModelViewSet):
     queryset = Client.objects.filter(is_deleted=False)
     filter_backends = [filters.SearchFilter]
     search_fields = ["display_name", "primary_email"]
+    rbac_resource = "client"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["client.view"]),
+        "retrieve": PermissionRequirement(all=["client.view"]),
+        "create": PermissionRequirement(all=["client.manage"]),
+        "update": PermissionRequirement(all=["client.manage"]),
+        "partial_update": PermissionRequirement(all=["client.manage"]),
+        "destroy": PermissionRequirement(all=["client.manage"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset()
+        return restrict_related_queryset(queryset, self.request.user, related_field="matters", bypass_permission="client.manage")
 
     def perform_create(self, serializer):
         client = serializer.save(organization=self.request.user.organization)
@@ -32,6 +46,19 @@ class MatterViewSet(OrganizationModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["status", "practice_area", "client__id"]
     search_fields = ["title", "reference_code"]
+    rbac_resource = "matter"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["matter.view"]),
+        "retrieve": PermissionRequirement(all=["matter.view"]),
+        "create": PermissionRequirement(all=["matter.manage"]),
+        "update": PermissionRequirement(all=["matter.manage"]),
+        "partial_update": PermissionRequirement(all=["matter.manage"]),
+        "destroy": PermissionRequirement(all=["matter.manage"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset()
+        return restrict_matters_queryset(queryset, self.request.user)
 
     def perform_create(self, serializer):
         matter = serializer.save(organization=self.request.user.organization)
@@ -46,6 +73,22 @@ class CaseDeadlineViewSet(OrganizationModelViewSet):
     search_fields = ["title", "description", "matter__title"]
     ordering_fields = ["due_date", "created_at", "priority"]
     ordering = ["due_date"]
+    rbac_resource = "deadline"
+    rbac_permissions = {
+        "list": PermissionRequirement(all=["matter.view"]),
+        "retrieve": PermissionRequirement(all=["matter.view"]),
+        "create": PermissionRequirement(all=["matter.manage"]),
+        "update": PermissionRequirement(all=["matter.manage"]),
+        "partial_update": PermissionRequirement(all=["matter.manage"]),
+        "destroy": PermissionRequirement(all=["matter.manage"]),
+        "summary": PermissionRequirement(all=["matter.view"]),
+        "calendar": PermissionRequirement(all=["matter.view"]),
+        "mark_completed": PermissionRequirement(all=["matter.manage"]),
+    }
+
+    def get_queryset(self):  # type: ignore[override]
+        queryset = super().get_queryset()
+        return restrict_related_queryset(queryset, self.request.user, related_field="matter", bypass_permission="matter.view_all")
 
     def get_serializer_class(self):
         if self.action == "list":
