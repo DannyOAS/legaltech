@@ -2,8 +2,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import Organization, User
 from accounts.mfa import generate_secret, generate_totp
+from accounts.models import Organization, User
 
 
 class MFALoginTests(APITestCase):
@@ -22,7 +22,9 @@ class MFALoginTests(APITestCase):
 
     def test_login_requires_otp(self):
         url = reverse("auth:login")
-        response = self.client.post(url, {"email": self.user.email, "password": "Passw0rd!123"}, format="json")
+        response = self.client.post(
+            url, {"email": self.user.email, "password": "Passw0rd!123"}, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("mfa", response.data.get("detail", "").lower())
 

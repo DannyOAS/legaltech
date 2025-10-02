@@ -1,4 +1,5 @@
 """API throttling policies."""
+
 from rest_framework.throttling import UserRateThrottle
 
 

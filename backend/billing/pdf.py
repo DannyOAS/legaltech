@@ -1,7 +1,7 @@
 """Helpers for rendering invoice PDFs."""
+
 from __future__ import annotations
 
-from datetime import date
 from io import BytesIO
 from typing import Sequence
 
@@ -56,7 +56,9 @@ def render_invoice_pdf(invoice: Invoice) -> bytes:
         b"3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
         b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>endobj"
     )
-    write_obj(f"4 0 obj<< /Length {len(stream)} >>stream\n".encode("latin-1") + stream + b"\nendstream")
+    write_obj(
+        f"4 0 obj<< /Length {len(stream)} >>stream\n".encode("latin-1") + stream + b"\nendstream"
+    )
     write_obj(b"5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj")
 
     xref_offset = buffer.tell()

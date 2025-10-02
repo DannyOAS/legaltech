@@ -1,4 +1,5 @@
 """Integration API stubs."""
+
 from __future__ import annotations
 
 from django.urls import path
@@ -16,7 +17,14 @@ from . import docusign, stripe
 def stripe_connect(request: Request) -> Response:
     auth_code = request.data.get("code")
     connection = stripe.connect_account(auth_code)
-    audit_action(request.organization_id, request.user.id, "integration.stripe.connect", "stripe", connection.account_id, request)
+    audit_action(
+        request.organization_id,
+        request.user.id,
+        "integration.stripe.connect",
+        "stripe",
+        connection.account_id,
+        request,
+    )
     return Response({"account_id": connection.account_id, "livemode": connection.livemode})
 
 

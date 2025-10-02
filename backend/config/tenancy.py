@@ -1,4 +1,5 @@
 """Helpers to enforce organization scoping across the API."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -89,7 +90,9 @@ def assert_object_org(obj: Model, request: HttpRequest) -> None:
 class OrganizationScopedPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
     """Limit related selections to the requesting organization."""
 
-    def __init__(self, *args: Any, organization_field: str = "organization_id", **kwargs: Any) -> None:
+    def __init__(
+        self, *args: Any, organization_field: str = "organization_id", **kwargs: Any
+    ) -> None:
         self.organization_field = organization_field
         super().__init__(*args, **kwargs)
 

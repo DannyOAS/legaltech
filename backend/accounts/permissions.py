@@ -1,23 +1,19 @@
-"""Role-based access helpers and permission enforcement."""
+"""Role-based access helpers."""
+
 from __future__ import annotations
 
-from functools import wraps
-from typing import Callable, Iterable, Mapping, Sequence
-
-from django.db.models import Q, QuerySet
-from rest_framework.permissions import BasePermission, SAFE_METHODS
-from rest_framework.request import Request
-
-from .models import Role
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
 def _role_names(user) -> set[str]:
     names = getattr(user, "_cached_role_names", None)
     if names is None:
-        names = set(
-            user.roles.values_list("name", flat=True)
-        ) if user and getattr(user, "is_authenticated", False) else set()
-        setattr(user, "_cached_role_names", names)
+        names = (
+            set(user.roles.values_list("name", flat=True))
+            if user and user.is_authenticated
+            else set()
+        )
+        user._cached_role_names = names
     return names
 
 

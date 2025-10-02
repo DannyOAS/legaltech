@@ -1,14 +1,14 @@
 """Serializers for accounts domain."""
-from __future__ import annotations
 
-from datetime import timedelta
+from __future__ import annotations
 
 from django.conf import settings
 from django.contrib.auth import authenticate
-from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as SimpleJWTTokenObtainPair
+from rest_framework_simplejwt.serializers import (
+    TokenObtainPairSerializer as SimpleJWTTokenObtainPair,
+)
 
 from config.tenancy import OrganizationScopedPrimaryKeyRelatedField
 from matters.models import Client
@@ -76,7 +76,15 @@ class UserSerializer(serializers.ModelSerializer):
             "organization",
             "roles",
         ]
-        read_only_fields = ["id", "is_staff", "created_at", "organization", "roles", "last_login_at", "mfa_required"]
+        read_only_fields = [
+            "id",
+            "is_staff",
+            "created_at",
+            "organization",
+            "roles",
+            "last_login_at",
+            "mfa_required",
+        ]
 
     def get_roles(self, obj: User) -> list[str]:
         return list(obj.roles.values_list("name", flat=True))
@@ -84,7 +92,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class InvitationSerializer(serializers.ModelSerializer):
     role = OrganizationScopedPrimaryKeyRelatedField(queryset=Role.objects.all())
-    client = OrganizationScopedPrimaryKeyRelatedField(queryset=Client.objects.all(), required=False, allow_null=True)
+    client = OrganizationScopedPrimaryKeyRelatedField(
+        queryset=Client.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Invitation
@@ -101,13 +111,23 @@ class InvitationSerializer(serializers.ModelSerializer):
             "created_at",
             "metadata",
         ]
-        read_only_fields = ["id", "token", "expires_at", "organization", "created_at", "status", "accepted_at"]
+        read_only_fields = [
+            "id",
+            "token",
+            "expires_at",
+            "organization",
+            "created_at",
+            "status",
+            "accepted_at",
+        ]
 
     def validate(self, attrs):
         client = attrs.get("client")
         role: Role = attrs.get("role")
         if client and role and role.name != "Client":
-            raise serializers.ValidationError({"client": "Client invitations must use the Client role."})
+            raise serializers.ValidationError(
+                {"client": "Client invitations must use the Client role."}
+            )
         return attrs
 
     def create(self, validated_data):
@@ -229,7 +249,9 @@ class InvitationAcceptSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         try:
-            invitation = Invitation.objects.select_related("organization", "role", "client").get(token=attrs["token"])
+            invitation = Invitation.objects.select_related("organization", "role", "client").get(
+                token=attrs["token"]
+            )
         except Invitation.DoesNotExist as exc:
             raise serializers.ValidationError({"token": "Invitation not found"}) from exc
         if not invitation.is_valid():

@@ -1,4 +1,5 @@
 """AI provider interface and loader."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,11 +9,9 @@ from django.conf import settings
 
 
 class AIProvider(Protocol):
-    def summarize(self, text: str) -> str:
-        ...
+    def summarize(self, text: str) -> str: ...
 
-    def extract_entities(self, text: str) -> dict:
-        ...
+    def extract_entities(self, text: str) -> dict: ...
 
 
 @dataclass
