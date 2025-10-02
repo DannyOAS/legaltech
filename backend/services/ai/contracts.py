@@ -1,4 +1,5 @@
 """Contract analysis interface for Ontario legal review."""
+
 from __future__ import annotations
 
 import re

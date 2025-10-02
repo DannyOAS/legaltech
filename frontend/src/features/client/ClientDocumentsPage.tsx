@@ -1,5 +1,6 @@
 import { ChangeEvent, useMemo, useState } from "react";
 import useSWR from "swr";
+import Skeleton from "../../components/ui/Skeleton";
 import { api } from "../../lib/api";
 
 interface ClientDocument {
@@ -31,7 +32,7 @@ const ClientDocumentsPage = () => {
     }
     return `/client/documents/?${params.toString()}`;
   }, [offset, searchValue]);
-  const { data } = useSWR<PaginatedResponse<ClientDocument>>(key, fetcher);
+  const { data, isLoading } = useSWR<PaginatedResponse<ClientDocument>>(key, fetcher);
   const documents = data?.results ?? [];
   const totalDocuments = data?.count ?? 0;
   const hasPrevious = page > 0;
@@ -67,6 +68,23 @@ const ClientDocumentsPage = () => {
     }
   };
 
+  const renderLoadingSkeleton = (rows = 6) => (
+    <ul className="mt-4 space-y-3 text-sm">
+      {Array.from({ length: rows }).map((_, index) => (
+        <li key={index} className="flex items-center justify-between rounded border border-slate-200 p-3">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <div className="rounded-lg bg-white p-6 shadow">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -83,31 +101,35 @@ const ClientDocumentsPage = () => {
         />
       </div>
       {status && <div className="mb-4 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{status}</div>}
-      <ul className="mt-4 space-y-3 text-sm">
-        {documents.length ? (
-          documents.map((doc) => (
-            <li key={doc.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
-              <div>
-                <p className="font-medium text-slate-700">{doc.filename}</p>
-                <p className="text-xs text-slate-500">{doc.mime} · {(doc.size / 1024).toFixed(1)} KB</p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <time className="text-xs text-slate-500">{new Date(doc.uploaded_at).toLocaleString()}</time>
-                <button
-                  type="button"
-                  onClick={() => downloadDocument(doc)}
-                  disabled={downloadingId === doc.id}
-                  className="rounded bg-primary-600 px-2 py-1 text-xs text-white transition-colors hover:bg-primary-500 disabled:cursor-progress disabled:bg-primary-300"
-                >
-                  {downloadingId === doc.id ? "Preparing..." : "Download"}
-                </button>
-              </div>
-            </li>
-          ))
-        ) : (
-          <li className="text-slate-500">No documents available yet.</li>
-        )}
-      </ul>
+      {isLoading ? (
+        renderLoadingSkeleton()
+      ) : (
+        <ul className="mt-4 space-y-3 text-sm">
+          {documents.length ? (
+            documents.map((doc) => (
+              <li key={doc.id} className="flex items-center justify-between rounded border border-slate-200 p-3">
+                <div>
+                  <p className="font-medium text-slate-700">{doc.filename}</p>
+                  <p className="text-xs text-slate-500">{doc.mime} · {(doc.size / 1024).toFixed(1)} KB</p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <time className="text-xs text-slate-500">{new Date(doc.uploaded_at).toLocaleString()}</time>
+                  <button
+                    type="button"
+                    onClick={() => downloadDocument(doc)}
+                    disabled={downloadingId === doc.id}
+                    className="rounded bg-primary-600 px-2 py-1 text-xs text-white transition-colors hover:bg-primary-500 disabled:cursor-progress disabled:bg-primary-300"
+                  >
+                    {downloadingId === doc.id ? "Preparing..." : "Download"}
+                  </button>
+                </div>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No documents available yet.</li>
+          )}
+        </ul>
+      )}
       <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
         <div>
           {totalDocuments === 0

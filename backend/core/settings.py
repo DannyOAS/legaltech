@@ -1,4 +1,5 @@
 """Django settings for the Ontario legal tech SaaS platform."""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +11,7 @@ from typing import Any, Dict
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- Environment helpers ----------------------------------------------------
+
 
 def env(key: str, default: str | None = None) -> str:
     value = os.getenv(key, default)
@@ -89,6 +91,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "core.wsgi.application"
 ASGI_APPLICATION = "core.asgi.application"
 
+
 # --- Database ---------------------------------------------------------------
 def _database_config() -> Dict[str, Any]:
     default_db = "postgres://postgres:postgres@db:5432/legaltech"
@@ -117,7 +120,10 @@ DATABASES = {"default": _database_config()}
 AUTH_USER_MODEL = "accounts.User"
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 12},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]

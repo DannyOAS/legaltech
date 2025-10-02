@@ -89,6 +89,8 @@ class DocumentManagementTests(APITestCase):
         create_response = self.client.post(reverse("document-list"), payload, format="json")
         document_id = create_response.data["document"]["id"]
         comment_payload = {"document": document_id, "body": "Needs review"}
-        response = self.client.post(reverse("document-comment-list"), comment_payload, format="json")
+        response = self.client.post(
+            reverse("document-comment-list"), comment_payload, format="json"
+        )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(DocumentComment.objects.filter(document_id=document_id).count(), 1)

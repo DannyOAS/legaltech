@@ -1,7 +1,8 @@
 """Client portal endpoints."""
+
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Sum
 from rest_framework import mixins, status, viewsets
@@ -106,7 +107,9 @@ class ClientInvoiceViewSet(ClientPortalMixin, mixins.ListModelMixin, viewsets.Ge
     def download(self, request: Request, pk=None) -> Response:
         invoice = self.get_object()
         if not invoice.pdf_file:
-            return Response({"detail": "Invoice PDF not available"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Invoice PDF not available"}, status=status.HTTP_404_NOT_FOUND
+            )
         url = generate_get_url(invoice.organization_id, invoice.pdf_file)
         audit_action(
             invoice.organization_id,
@@ -119,31 +122,41 @@ class ClientInvoiceViewSet(ClientPortalMixin, mixins.ListModelMixin, viewsets.Ge
         return Response({"url": url})
 
 
-class ClientMatterViewSet(ClientPortalMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+class ClientMatterViewSet(
+    ClientPortalMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
+):
     serializer_class = ClientMatterSerializer
 
     def get_queryset(self):
         client = self._get_client()
         if not client:
             return Matter.objects.none()
-        return Matter.objects.filter(organization=client.organization, client=client).order_by("-opened_at")
+        return Matter.objects.filter(organization=client.organization, client=client).order_by(
+            "-opened_at"
+        )
 
 
 class ClientDashboardView(ClientPortalMixin, APIView):
     def get(self, request: Request) -> Response:
         client = self._get_client()
         if not client:
-            return Response({"detail": "Client account not linked"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Client account not linked"}, status=status.HTTP_400_BAD_REQUEST
+            )
         organization_id = client.organization_id
         invoices = Invoice.objects.filter(organization_id=organization_id, matter__client=client)
-        documents_count = Document.objects.filter(organization_id=organization_id, matter__client=client, client_visible=True).count()
+        documents_count = Document.objects.filter(
+            organization_id=organization_id, matter__client=client, client_visible=True
+        ).count()
         recent_documents = Document.objects.filter(
             organization_id=organization_id,
             matter__client=client,
             client_visible=True,
         ).order_by("-uploaded_at")[:5]
         serializer = ClientDocumentSerializer(recent_documents, many=True)
-        outstanding_value = invoices.exclude(status="paid").aggregate(total=Sum("total"))["total"] or Decimal("0")
+        outstanding_value = invoices.exclude(status="paid").aggregate(total=Sum("total"))[
+            "total"
+        ] or Decimal("0")
         outstanding_value = outstanding_value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if outstanding_value == outstanding_value.to_integral():
             outstanding_display = str(outstanding_value.to_integral())

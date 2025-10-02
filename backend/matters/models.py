@@ -1,4 +1,5 @@
 """Client and matter models."""
+
 from __future__ import annotations
 
 import uuid
@@ -25,7 +26,9 @@ class Client(TimeStampedModel):
     address = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     is_deleted = models.BooleanField(default=False)
-    portal_user = models.OneToOneField(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="client_profile")
+    portal_user = models.OneToOneField(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="client_profile"
+    )
 
     class Meta:
         ordering = ["display_name"]

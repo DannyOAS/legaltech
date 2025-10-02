@@ -1,4 +1,5 @@
 """API endpoint for contract analysis stub."""
+
 from __future__ import annotations
 
 from rest_framework import serializers, status
@@ -26,19 +27,17 @@ class ContractAnalysisResponse(serializers.Serializer):
 
 class ContractAnalysisView(APIView):
     """Ontario-compliant contract analysis for legal documents."""
+
     permission_classes = [IsAuthenticated, IsOrganizationMember]
 
     def post(self, request):
         serializer = ContractAnalysisRequest(data=request.data)
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
-        
+
         # Analyze contract text using Ontario legal standards
-        result = analyze_contract(
-            payload["text"], 
-            jurisdiction=payload.get("jurisdiction", "ON")
-        )
-        
+        result = analyze_contract(payload["text"], jurisdiction=payload.get("jurisdiction", "ON"))
+
         # Audit the analysis request for compliance tracking
         audit_action(
             request.organization_id,
@@ -51,8 +50,8 @@ class ContractAnalysisView(APIView):
                 "jurisdiction": result["jurisdiction"],
                 "missing_clause_count": len(result["missing_clauses"]),
                 "risk_term_count": len(result["risky_terms"]),
-                "text_length": len(payload["text"])
-            }
+                "text_length": len(payload["text"]),
+            },
         )
-        
+
         return Response(result, status=status.HTTP_200_OK)

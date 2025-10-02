@@ -1,12 +1,12 @@
 """Serializers for portal functionality."""
+
 from __future__ import annotations
 
 from rest_framework import serializers
 
 from config.tenancy import OrganizationScopedPrimaryKeyRelatedField
-from services.storage.presign import generate_get_url, generate_put_url
-
 from matters.models import Matter
+from services.storage.presign import generate_get_url, generate_put_url
 
 from .models import Document, DocumentComment, DocumentVersion, Message, MessageThread, ShareLink
 
@@ -105,11 +105,21 @@ class MessageThreadSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     thread = OrganizationScopedPrimaryKeyRelatedField(queryset=MessageThread.objects.all())
-    attachments = OrganizationScopedPrimaryKeyRelatedField(queryset=Document.objects.all(), many=True, required=False)
+    attachments = OrganizationScopedPrimaryKeyRelatedField(
+        queryset=Document.objects.all(), many=True, required=False
+    )
 
     class Meta:
         model = Message
-        fields = ["id", "thread", "sender_user", "sender_client", "body", "attachments", "created_at"]
+        fields = [
+            "id",
+            "thread",
+            "sender_user",
+            "sender_client",
+            "body",
+            "attachments",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at", "sender_user", "sender_client"]
 
     def validate_attachments(self, value):
