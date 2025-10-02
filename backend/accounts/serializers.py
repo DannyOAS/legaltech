@@ -15,7 +15,7 @@ from matters.models import Client
 from services.notifications.email import send_invitation_email
 
 from .mfa import verify_totp
-from .models import APIToken, Invitation, Organization, Role, User, UserRole
+from .models import APIToken, Invitation, Organization, Permission, Role, User, UserRole
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -25,11 +25,36 @@ class OrganizationSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ["id", "codename", "label", "description"]
+        read_only_fields = fields
+
+
 class RoleSerializer(serializers.ModelSerializer):
+    permissions = serializers.PrimaryKeyRelatedField(queryset=Permission.objects.all(), many=True, required=False)
+
     class Meta:
         model = Role
-        fields = ["id", "name", "organization"]
-        read_only_fields = ["id", "organization"]
+        fields = ["id", "name", "organization", "is_custom", "permissions"]
+        read_only_fields = ["id", "organization", "is_custom"]
+
+    def create(self, validated_data):
+        permissions = validated_data.pop("permissions", [])
+        validated_data["organization"] = self.context["request"].user.organization
+        validated_data.setdefault("is_custom", True)
+        role = super().create(validated_data)
+        if permissions:
+            role.permissions.set(permissions)
+        return role
+
+    def update(self, instance, validated_data):
+        permissions = validated_data.pop("permissions", None)
+        role = super().update(instance, validated_data)
+        if permissions is not None:
+            role.permissions.set(permissions)
+        return role
 
 
 class UserSerializer(serializers.ModelSerializer):
