@@ -100,15 +100,20 @@ const ClientMattersPage = () => {
   );
 
   return (
-    <div className="rounded-lg bg-white p-6 shadow">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-slate-700">My Matters</h2>
+    <section className="space-y-6 rounded-lg bg-white p-6 shadow">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-slate-700">My Matters</h2>
+          <p className="text-sm text-slate-500 md:hidden">
+            Track every matter at a glance and open the full record with a tap.
+          </p>
+        </div>
         <input
           type="search"
           value={searchValue}
           onChange={handleSearchChange}
           placeholder="Search matters..."
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+          className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none md:max-w-xs"
         />
       </div>
       {isLoading ? (
@@ -116,70 +121,72 @@ const ClientMattersPage = () => {
       ) : matters.length === 0 ? (
         <p className="text-sm text-slate-500">No matters available yet.</p>
       ) : (
-        <div>
-          <div className="hidden overflow-x-auto md:block">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Reference</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Title</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Practice Area</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Lead Lawyer</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600">Status</th>
-                  <th className="px-3 py-2 text-right font-medium text-slate-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {matters.map((matter) => (
-                  <tr key={matter.id}>
-                    <td className="px-3 py-2 font-medium text-slate-700">{matter.reference_code}</td>
-                    <td className="px-3 py-2 text-slate-600">{matter.title}</td>
-                    <td className="px-3 py-2 text-slate-500">{matter.practice_area || "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{matter.lead_lawyer_name || "—"}</td>
-                    <td className="px-3 py-2">{renderStatusBadge(matter.status)}</td>
-                    <td className="px-3 py-2 text-right">
-                      <Button variant="secondary" size="sm" onClick={() => navigate(`/client/matters/${matter.id}`)}>
-                        View
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="space-y-3 md:hidden">
+        <>
+          <ul className="space-y-3 text-sm md:hidden">
             {matters.map((matter) => (
-              <div key={matter.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Reference</p>
-                  <p className="text-base font-semibold text-slate-700">{matter.reference_code}</p>
-                </div>
-                <div className="space-y-2 text-sm">
+              <li key={matter.id} className="space-y-3 rounded-xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-slate-700">{matter.title}</p>
-                    <p className="text-xs text-slate-500">{matter.practice_area || "—"}</p>
+                    <p className="text-base font-semibold text-slate-700">{matter.title}</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">{matter.reference_code}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>Lead lawyer</span>
-                    <span className="font-medium text-slate-600">{matter.lead_lawyer_name || "—"}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>Status</span>
-                    <div>{renderStatusBadge(matter.status)}</div>
-                  </div>
+                  {renderStatusBadge(matter.status)}
                 </div>
-                <div className="mt-4 flex justify-end">
-                  <Button variant="secondary" size="sm" onClick={() => navigate(`/client/matters/${matter.id}`)}>
-                    View
-                  </Button>
-                </div>
-              </div>
+                <dl className="grid gap-2 text-xs text-slate-500">
+                  <div className="flex justify-between gap-2">
+                    <dt className="font-medium text-slate-600">Practice</dt>
+                    <dd className="text-right">{matter.practice_area || "—"}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="font-medium text-slate-600">Lead Lawyer</dt>
+                    <dd className="text-right">{matter.lead_lawyer_name || "—"}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="font-medium text-slate-600">Opened</dt>
+                    <dd className="text-right">{new Date(matter.opened_at).toLocaleDateString()}</dd>
+                  </div>
+                </dl>
+                <Button className="w-full" onClick={() => navigate(`/client/matters/${matter.id}`)}>
+                  View matter
+                </Button>
+              </li>
             ))}
+          </ul>
+          <div className="hidden md:block">
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Reference</th>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Title</th>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Practice Area</th>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Lead Lawyer</th>
+                    <th className="px-3 py-3 text-left font-medium text-slate-600">Status</th>
+                    <th className="px-3 py-3 text-right font-medium text-slate-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {matters.map((matter) => (
+                    <tr key={matter.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-3 font-medium text-slate-700">{matter.reference_code}</td>
+                      <td className="px-3 py-3 text-slate-600">{matter.title}</td>
+                      <td className="px-3 py-3 text-slate-500">{matter.practice_area || "—"}</td>
+                      <td className="px-3 py-3 text-slate-500">{matter.lead_lawyer_name || "—"}</td>
+                      <td className="px-3 py-3">{renderStatusBadge(matter.status)}</td>
+                      <td className="px-3 py-3 text-right">
+                        <Button variant="secondary" size="sm" onClick={() => navigate(`/client/matters/${matter.id}`)}>
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
-      <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
         <div>
           {total === 0
             ? "No results"
@@ -187,12 +194,12 @@ const ClientMattersPage = () => {
             ? `Showing 0 of ${total}`
             : `Showing ${offset + 1}-${offset + matters.length} of ${total}`}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
             disabled={!hasPrevious}
-            className={`rounded border px-3 py-1 text-sm transition-colors ${
+            className={`flex-1 rounded border px-3 py-1 text-center text-sm transition-colors md:flex-none md:w-auto ${
               hasPrevious ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
             }`}
           >
@@ -202,7 +209,7 @@ const ClientMattersPage = () => {
             type="button"
             onClick={() => setPage((prev) => (hasNext ? prev + 1 : prev))}
             disabled={!hasNext}
-            className={`rounded border px-3 py-1 text-sm transition-colors ${
+            className={`flex-1 rounded border px-3 py-1 text-center text-sm transition-colors md:flex-none md:w-auto ${
               hasNext ? "border-slate-300 hover:border-primary-500 hover:text-primary-600" : "border-slate-200 text-slate-400"
             }`}
           >
@@ -210,7 +217,7 @@ const ClientMattersPage = () => {
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
